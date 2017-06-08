@@ -270,7 +270,7 @@
 }
 
 .ui-datatable-scrollable-view {
-    
+
 }
 
 .ui-datatable-frozen-view .ui-datatable-scrollable-body {
@@ -278,8 +278,7 @@
 }
 
 .ui-datatable-unfrozen-view {
-    position: absolute;
-    top: 0px;
+
 }
 
 .ui-datatable .ui-datatable-load-status {
