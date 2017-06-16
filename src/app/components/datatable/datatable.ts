@@ -1970,6 +1970,8 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
         }
     }
 
+    dragHeaderOffset;
+
     onColumnDragStart(event) {
         if (this.columnResizing) {
             event.preventDefault();
@@ -1977,6 +1979,10 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
         }
 
         this.draggedColumn = this.findParentHeader(event.target);
+        let dragHeader = this.domHandler.getOffset(this.draggedColumn);
+        let dragHeaderCenter = dragHeader.left + this.draggedColumn.offsetWidth / 2;
+        this.dragHeaderOffset = event.pageX - dragHeaderCenter;
+
         event.dataTransfer.setData('text', 'b'); // Firefox requires this to make dragging possible
     }
 
@@ -1993,19 +1999,22 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
             if(this.draggedColumn != dropHeader) {
                 let targetLeft =  dropHeaderOffset.left - containerOffset.left;
                 let targetTop =  containerOffset.top - dropHeaderOffset.top;
-                let columnCenter = dropHeaderOffset.left + dropHeader.offsetWidth / 2;
+                let dropColumnCenter = dropHeaderOffset.left + dropHeader.offsetWidth / 2;
 
-                this.reorderIndicatorUp.style.top = dropHeaderOffset.top - containerOffset.top - (iconHeight - 1) + 'px';
-                this.reorderIndicatorDown.style.top = dropHeaderOffset.top - containerOffset.top + dropHeader.offsetHeight + 'px';
+                let topOffset = dropHeaderOffset.top - containerOffset.top;
+                this.reorderIndicatorUp.style.top = topOffset - (iconHeight - 1) + 'px';
+                this.reorderIndicatorDown.style.top = topOffset + dropHeader.offsetHeight + 'px';
 
-                if(event.pageX > columnCenter) {
-                    this.reorderIndicatorUp.style.left = (targetLeft + dropHeader.offsetWidth - Math.ceil(iconWidth / 2)) + 'px';
-                    this.reorderIndicatorDown.style.left = (targetLeft + dropHeader.offsetWidth - Math.ceil(iconWidth / 2))+ 'px';
+                if(event.pageX - this.dragHeaderOffset > dropColumnCenter) {
+                    let rightIndicatorPosition = (targetLeft + dropHeader.offsetWidth - Math.ceil(iconWidth / 2)) + 'px';
+                    this.reorderIndicatorUp.style.left = rightIndicatorPosition;
+                    this.reorderIndicatorDown.style.left = rightIndicatorPosition;
                     this.dropPosition = 1;
                 }
                 else {
-                    this.reorderIndicatorUp.style.left = (targetLeft - Math.ceil(iconWidth / 2)) + 'px';
-                    this.reorderIndicatorDown.style.left = (targetLeft - Math.ceil(iconWidth / 2))+ 'px';
+                    let leftIndicatorPosition = (targetLeft - Math.ceil(iconWidth / 2)) + 'px';
+                    this.reorderIndicatorUp.style.left = leftIndicatorPosition;
+                    this.reorderIndicatorDown.style.left = leftIndicatorPosition;
                     this.dropPosition = -1;
                 }
 
@@ -2029,15 +2038,26 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
     onColumnDrop(event) {
         event.preventDefault();
         if(this.draggedColumn) {
-             let dragIndex = this.domHandler.index(this.draggedColumn);
-            let dropIndex = this.domHandler.index(this.findParentHeader(event.target));
+            // The indexes are modified with a +1 to account for the edit button column
+            let dragIndex = this.domHandler.index(this.draggedColumn) + 1;
+            let dropIndex = this.domHandler.index(this.findParentHeader(event.target)) + 1;
             let allowDrop = (dragIndex != dropIndex);
             if(allowDrop && ((dropIndex - dragIndex == 1 && this.dropPosition === -1) || (dragIndex - dropIndex == 1 && this.dropPosition === 1))) {
                 allowDrop = false;
             }
 
             if(allowDrop) {
-                this.columns.splice(dropIndex, 0, this.columns.splice(dragIndex, 1)[0]);
+                let element = this.columns[dragIndex];
+                this.columns.splice(dragIndex, 1);
+
+                if (dragIndex > dropIndex) {
+                    dropIndex = this.dropPosition === 1 ? dropIndex + 1: dropIndex;
+                }
+                else {
+                    dropIndex = this.dropPosition === -1 ? dropIndex - 1 : dropIndex;
+                }
+
+                this.columns.splice(dropIndex, 0, element);
 
                 this.onColReorder.emit({
                     dragIndex: dragIndex,
