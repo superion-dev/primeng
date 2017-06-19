@@ -687,6 +687,8 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
 
     public dropPosition: number;
 
+    public dragHeaderCenterOffset: number;
+
     public tbody: any;
 
     public rowTouched: boolean;
@@ -1970,8 +1972,6 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
         }
     }
 
-    dragHeaderOffset;
-
     onColumnDragStart(event) {
         if (this.columnResizing) {
             event.preventDefault();
@@ -1981,7 +1981,7 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
         this.draggedColumn = this.findParentHeader(event.target);
         let dragHeader = this.domHandler.getOffset(this.draggedColumn);
         let dragHeaderCenter = dragHeader.left + this.draggedColumn.offsetWidth / 2;
-        this.dragHeaderOffset = event.pageX - dragHeaderCenter;
+        this.dragHeaderCenterOffset = event.pageX - dragHeaderCenter;
 
         event.dataTransfer.setData('text', 'b'); // Firefox requires this to make dragging possible
     }
@@ -2005,7 +2005,7 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
                 this.reorderIndicatorUp.style.top = topOffset - (iconHeight - 1) + 'px';
                 this.reorderIndicatorDown.style.top = topOffset + dropHeader.offsetHeight + 'px';
 
-                if(event.pageX - this.dragHeaderOffset > dropColumnCenter) {
+                if(event.pageX - this.dragHeaderCenterOffset > dropColumnCenter) {
                     let rightIndicatorPosition = (targetLeft + dropHeader.offsetWidth - Math.ceil(iconWidth / 2)) + 'px';
                     this.reorderIndicatorUp.style.left = rightIndicatorPosition;
                     this.reorderIndicatorDown.style.left = rightIndicatorPosition;
