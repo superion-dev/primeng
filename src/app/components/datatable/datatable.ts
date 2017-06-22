@@ -462,7 +462,7 @@ export class ScrollableView implements AfterViewInit,AfterViewChecked,OnDestroy 
             <ng-template [ngIf]="scrollable">
                 <div class="ui-datatable-scrollable-wrapper ui-helper-clearfix" [ngClass]="{'max-height':scrollHeight}" style="display: flex">
                     <div *ngIf="frozenColumns" [pScrollableView]="frozenColumns" [frozen]="true"
-                        [ngStyle]="{'display': 'inline-block', 'width': frozenWidth + 'px'}" class="ui-datatable-scrollable-view ui-datatable-frozen-view"></div>
+                        [ngStyle]="{'display': 'inline-block', 'width': frozenWidth + 'px', 'border-right': 'solid 1px #999'}" class="ui-datatable-scrollable-view ui-datatable-frozen-view"></div>
                     <div [pScrollableView]="scrollableColumns"
                         class="ui-datatable-scrollable-view" [virtualScroll]="virtualScroll" (onVirtualScroll)="onVirtualScroll($event)"
                         [ngStyle]="{'display': 'inline-block', 'width': 'calc(100% - ' + frozenWidth + 'px)'}"
