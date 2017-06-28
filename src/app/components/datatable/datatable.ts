@@ -110,7 +110,7 @@ export class RowExpansionLoader implements OnInit, OnDestroy {
                 [ngClass]="{'ui-state-default ui-unselectable-text':true, 'ui-sortable-column': col.sortable, 'ui-state-active': dt.isSorted(col), 'ui-resizable-column': dt.resizableColumns, 'ui-selection-column':col.selectionMode}"
                 (dragstart)="dt.onColumnDragStart($event)" (dragover)="dt.onColumnDragover($event)" (dragleave)="dt.onColumnDragleave($event)" (drop)="dt.onColumnDrop($event)" (mousedown)="dt.onHeaderMousedown($event,headerCell)"
                 [attr.tabindex]="col.sortable ? tabindex : null" (keydown)="dt.onHeaderKeydown($event,col)">
-                <span class="ui-column-resizer" *ngIf="dt.resizableColumns && ((dt.columnResizeMode == 'fit' && !lastCol) || dt.columnResizeMode == 'expand')" (mousedown)="dt.initColumnResize($event)"></span>
+                <span class="ui-column-resizer" *ngIf="dt.resizableColumns && ((dt.columnResizeMode == 'fit' && !lastCol) || dt.columnResizeMode == 'expand' || dt.columnResizeMode == 'fill')" (mousedown)="dt.initColumnResize($event)"></span>
                 <span class="ui-column-title" *ngIf="!col.selectionMode&&!col.headerTemplate">{{col.header}}</span>
                 <span class="ui-column-title" *ngIf="col.headerTemplate">
                     <p-columnHeaderTemplateLoader [column]="col"></p-columnHeaderTemplateLoader>
@@ -238,7 +238,7 @@ export class TableBody {
             <div #scrollTableWrapper style="position:relative" [ngStyle]="{'height':virtualTableHeight}">
                 <table #scrollTable [class]="dt.tableStyleClass" [ngStyle]="dt.tableStyle" [ngClass]="{'ui-datatable-virtual-table':virtualScroll}" style="top:0px">
                     <colgroup class="ui-datatable-scrollable-colgroup">
-                        <col *ngFor="let col of columns" [ngStyle]="col.style"/>
+                        <col *ngFor="let col of visibleColumns()" />
                     </colgroup>
                     <tbody [ngClass]="{'ui-datatable-data ui-widget-content': true, 'ui-datatable-hoverable-rows': (dt.rowHover||dt.selectionMode)}" [pTableBody]="columns"></tbody>
                 </table>
@@ -389,6 +389,11 @@ export class ScrollableView implements AfterViewInit,AfterViewChecked,OnDestroy 
             this.scrollBody.style.paddingBottom = this.domHandler.calculateScrollbarWidth() + 'px';
     }
 
+    visibleColumns() {
+        return this.columns ? this.columns.filter(c => !c.hidden && c.frozen === this.frozen) : [];
+    }
+
+
     hasVerticalOverflow() {
         return this.domHandler.getOuterHeight(this.scrollTable) > this.domHandler.getOuterHeight(this.scrollBody);
     }
@@ -456,11 +461,11 @@ export class ScrollableView implements AfterViewInit,AfterViewChecked,OnDestroy 
 
             <ng-template [ngIf]="scrollable">
                 <div class="ui-datatable-scrollable-wrapper ui-helper-clearfix" [ngClass]="{'max-height':scrollHeight}" style="display: flex">
-                    <div *ngIf="frozenColumns" [pScrollableView]="frozenColumns" frozen="true"
-                        [ngStyle]="{'width':this.frozenWidth, 'display': 'inline-block'}" class="ui-datatable-scrollable-view ui-datatable-frozen-view"></div>
+                    <div *ngIf="frozenColumns" [pScrollableView]="frozenColumns" [frozen]="true"
+                        [ngStyle]="{'display': 'inline-block', 'width': frozenWidth + 'px'}" class="ui-datatable-scrollable-view ui-datatable-frozen-view"></div>
                     <div [pScrollableView]="scrollableColumns"
                         class="ui-datatable-scrollable-view" [virtualScroll]="virtualScroll" (onVirtualScroll)="onVirtualScroll($event)"
-                        [ngStyle]="{'display': 'inline-block', 'width': 'calc(100% - ' + frozenWidth + ')'}"
+                        [ngStyle]="{'display': 'inline-block', 'width': 'calc(100% - ' + frozenWidth + 'px)'}"
                         [ngClass]="{'ui-datatable-unfrozen-view': frozenColumns}"></div>
                 </div>
             </ng-template>
@@ -537,8 +542,6 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
     @Input() scrollHeight: any;
 
     @Input() scrollWidth: any;
-
-    @Input() frozenWidth: any;
 
     @Input() style: any;
 
@@ -711,6 +714,7 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
     public preventSelectionKeysPropagation: any;
 
     _selection: any;
+    frozenWidth: number;
 
     globalFilterFunction: any;
 
@@ -854,17 +858,30 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
     initColumns(): void {
         this.columns = this.cols.toArray();
 
+        let frozenWidth = 0;
+
         if(this.scrollable) {
             this.scrollableColumns = [];
             this.frozenColumns = [];
             this.cols.forEach((col) => {
-                if(col.frozen) {
+                let desiredWidth = 0;
+                if (col.style && col.style.width) {
+                    desiredWidth = Number(col.style.width.slice(0, col.style.width.length - 2));
+                    if (col.desiredWidth === undefined) {
+                        col.desiredWidth = desiredWidth;
+                    }
+                }
+
+                if (col.frozen) {
                     this.frozenColumns.push(col);
+                    frozenWidth += desiredWidth;
                 } else {
                     this.scrollableColumns.push(col);
                 }
             });
         }
+
+        this.frozenWidth = frozenWidth;
 
         this.columnsChanged = true;
     }
@@ -1783,7 +1800,11 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
     }
 
     initResizableColumns() {
-        this.tbody = this.domHandler.findSingle(this.el.nativeElement, 'tbody.ui-datatable-data');
+        if (this.scrollable) {
+            this.tbody = this.domHandler.findSingle(this.el.nativeElement, '.ui-datatable-unfrozen-view tbody.ui-datatable-data');
+        } else {
+            this.tbody = this.domHandler.findSingle(this.el.nativeElement, 'tbody.ui-datatable-data');
+        }
         this.resizerHelper = this.domHandler.findSingle(this.el.nativeElement, 'div.ui-column-resizer-helper');
         this.fixColumnWidths();
 
@@ -1843,9 +1864,8 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
                         nextColumn.style.width = nextColumnWidth + 'px';
                     }
 
-
                     if(this.scrollable) {
-                        let colGroup = this.domHandler.findSingle(this.el.nativeElement, 'colgroup.ui-datatable-scrollable-colgroup');
+                        let colGroup = this.domHandler.findSingle(this.el.nativeElement, '.ui-datatable-unfrozen-view colgroup.ui-datatable-scrollable-colgroup');
                         let resizeColumnIndex = this.domHandler.index(this.resizeColumn);
                         colGroup.children[resizeColumnIndex].style.width = newColumnWidth + 'px';
 
@@ -1862,13 +1882,24 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
 
                 if(this.scrollable) {
                     this.domHandler.findSingle(this.el.nativeElement, '.ui-datatable-scrollable-header-box').children[0].style.width = containerWidth;
-                    let colGroup = this.domHandler.findSingle(this.el.nativeElement, 'colgroup.ui-datatable-scrollable-colgroup');
+                    let colGroup = this.domHandler.findSingle(this.el.nativeElement, '.ui-datatable-unfrozen-view colgroup.ui-datatable-scrollable-colgroup');
                     let resizeColumnIndex = this.domHandler.index(this.resizeColumn);
                     colGroup.children[resizeColumnIndex].style.width = newColumnWidth + 'px';
+
+                    let table = this.el.nativeElement.children[0];
+                    this.scrollBarWidth = this.scrollBarWidth || this.domHandler.calculateScrollbarWidth();
+                    table.style.width = parseFloat(containerWidth) + this.scrollBarWidth + 'px';
                 }
                 else {
                     this.el.nativeElement.children[0].style.width = containerWidth;
                 }
+            } else if (this.columnResizeMode === 'fill') {
+                let resizeColumnIndex = this.domHandler.index(this.resizeColumn);
+                let columns = this.columns.filter(col => !col.frozen);
+                let resizedColumn = columns[resizeColumnIndex];
+                resizedColumn.desiredWidth = newColumnWidth;
+                resizedColumn.style.width = newColumnWidth + 'px';
+                this.fixColumnWidths();
             }
 
             this.onColResize.emit({
@@ -1882,21 +1913,58 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
         this.domHandler.removeClass(this.el.nativeElement.children[0], 'ui-unselectable-text');
     }
 
-    fixColumnWidths() {
-        let columns = this.domHandler.find(this.el.nativeElement, 'th.ui-resizable-column');
-        let bodyCols;
-
+    extendLastColumn(view: any) {
+        let desiredWidth = 0;
+        let columns = this.columns.filter(col => !col.hidden && !col.frozen);
         for (let i = 0; i < columns.length; i++) {
-            columns[i].style.width = columns[i].offsetWidth + 'px';
+            let col = columns[i];
+            if (col.desiredWidth) {
+                desiredWidth += col.desiredWidth;
+            }
+        }
+
+        let tableWidth = view.offsetWidth;
+        if (desiredWidth > 0) {
+            for (let i = 0; i < columns.length; i++) {
+                let col = columns[i];
+                col.style.width = col.desiredWidth + 'px';
+            }
+
+            if (desiredWidth < tableWidth) {
+                // Auto fit the last column.
+                let lastColumn = columns[columns.length - 1];
+                lastColumn.style.width = '';
+            }
+        }
+    }
+
+    fixColumnWidths() {
+        let view = this.domHandler.findSingle(this.el.nativeElement, '.ui-datatable-unfrozen-view');
+        if (!view) {
+            view = this.el.nativeElement;
+        }
+
+        if (this.columnResizeMode === 'fill') {
+            this.extendLastColumn(view);
+        }
+
+        let columnElements = this.domHandler.find(view, 'th.ui-resizable-column');
+        let columns = this.columns.filter(col => !col.frozen);
+        for (let i = 0; i < columns.length; i++) {
+            let column = columns[i];
+            if (column.style && column.style.width !== undefined) {
+                columnElements[i].style.width = column.style.width;
+            }
         }
 
         if (this.scrollable) {
-            let colGroup = this.domHandler.findSingle(this.el.nativeElement, 'colgroup.ui-datatable-scrollable-colgroup');
-            bodyCols = colGroup.children;
-
-            if (bodyCols) {
-                for (let i = 0; i < columns.length; i++) {
-                    bodyCols[i].style.width = columns[i].offsetWidth + 'px';
+            let colGroup = this.domHandler.findSingle(view, 'colgroup.ui-datatable-scrollable-colgroup');
+            if (colGroup) {
+                let bodyCols = colGroup.children;
+                if (bodyCols) {
+                    for (let i = 0; i < columns.length; i++) {
+                        bodyCols[i].style.width = columns[i].style.width;
+                    }
                 }
             }
         }

@@ -2,13 +2,15 @@
   "name": "primeng",
   "version": "4.1.0-rc.3-SNAPSHOT",
   "license": "MIT",
+  "main": "primeng.js",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
     "test": "ng test",
     "lint": "ng lint",
-    "e2e": "ng e2e"
+    "e2e": "ng e2e",
+    "tsc": "tsc"
   },
   "repository": {
     "type": "git",
