@@ -2061,7 +2061,7 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
                 // Remove unfrozen columns from columns list
                 let unfrozenColumns = this.columns.splice(lastFrozenIndex);
 
-                // Removed dragged column from columns list 
+                // Removed dragged column from columns list
                 let element = unfrozenColumns.splice(dragIndex, 1)[0];
 
                 if (dragIndex > dropIndex) {
