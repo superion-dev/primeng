@@ -462,7 +462,7 @@ export class ScrollableView implements AfterViewInit,AfterViewChecked,OnDestroy 
             <ng-template [ngIf]="scrollable">
                 <div class="ui-datatable-scrollable-wrapper ui-helper-clearfix" [ngClass]="{'max-height':scrollHeight}" style="display: flex">
                     <div *ngIf="frozenColumns" [pScrollableView]="frozenColumns" [frozen]="true"
-                        [ngStyle]="{'display': 'inline-block', 'width': frozenWidth + 'px', 'border-right': 'solid 1px #999'}" class="ui-datatable-scrollable-view ui-datatable-frozen-view"></div>
+                        [ngStyle]="{'display': 'inline-block', 'width': frozenWidth + 'px'}" class="ui-datatable-scrollable-view ui-datatable-frozen-view"></div>
                     <div [pScrollableView]="scrollableColumns"
                         class="ui-datatable-scrollable-view" [virtualScroll]="virtualScroll" (onVirtualScroll)="onVirtualScroll($event)"
                         [ngStyle]="{'display': 'inline-block', 'width': 'calc(100% - ' + frozenWidth + 'px)'}"
@@ -2046,9 +2046,23 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
             }
 
             if(allowDrop) {
-                let element = this.columns.filter(col => !col.frozen)[dragIndex];
-                let elemIndex = this.columns.findIndex(col => col === element);
-                this.columns.splice(elemIndex, 1);
+                // find index of last frozen column
+                // I believe the frozen columns are always going to be on the "left" side of the columns list
+                let lastFrozenIndex = 0;
+                for(let column of this.columns) {
+                    if (column.frozen) {
+                        ++lastFrozenIndex;
+                    }
+                    else {
+                        break;
+                    }
+                }
+
+                // Remove unfrozen columns from columns list
+                let unfrozenColumns = this.columns.splice(lastFrozenIndex);
+
+                // Removed dragged column from columns list 
+                let element = unfrozenColumns.splice(dragIndex, 1)[0];
 
                 if (dragIndex > dropIndex) {
                     dropIndex = this.dropPosition === 1 ? dropIndex + 1: dropIndex;
@@ -2056,12 +2070,14 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
                 else {
                     dropIndex = this.dropPosition === -1 ? dropIndex - 1 : dropIndex;
                 }
-                
-                if (this.columns.some(col => col.frozen)) {
-                    ++dropIndex;
-                }
 
-                this.columns.splice(dropIndex, 0, element);
+                // Add column back to list at desired location
+                unfrozenColumns.splice(dropIndex, 0, element);
+
+                // Insert the reordered unfrozen columns back into columns array
+                for (let column of unfrozenColumns) {
+                    this.columns.push(column);
+                }
 
                 this.onColReorder.emit({
                     dragIndex: dragIndex,
