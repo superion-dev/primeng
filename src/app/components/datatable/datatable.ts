@@ -2038,23 +2038,27 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
     onColumnDrop(event) {
         event.preventDefault();
         if(this.draggedColumn) {
-            // The indexes are modified with a +1 to account for the edit button column
-            let dragIndex = this.domHandler.index(this.draggedColumn) + 1;
-            let dropIndex = this.domHandler.index(this.findParentHeader(event.target)) + 1;
+            let dragIndex = this.domHandler.index(this.draggedColumn);
+            let dropIndex = this.domHandler.index(this.findParentHeader(event.target));
             let allowDrop = (dragIndex != dropIndex);
             if(allowDrop && ((dropIndex - dragIndex == 1 && this.dropPosition === -1) || (dragIndex - dropIndex == 1 && this.dropPosition === 1))) {
                 allowDrop = false;
             }
 
             if(allowDrop) {
-                let element = this.columns[dragIndex];
-                this.columns.splice(dragIndex, 1);
+                let element = this.columns.filter(col => !col.frozen)[dragIndex];
+                let elemIndex = this.columns.findIndex(col => col === element);
+                this.columns.splice(elemIndex, 1);
 
                 if (dragIndex > dropIndex) {
                     dropIndex = this.dropPosition === 1 ? dropIndex + 1: dropIndex;
                 }
                 else {
                     dropIndex = this.dropPosition === -1 ? dropIndex - 1 : dropIndex;
+                }
+                
+                if (this.columns.some(col => col.frozen)) {
+                    ++dropIndex;
                 }
 
                 this.columns.splice(dropIndex, 0, element);
