@@ -168,9 +168,10 @@ export class ColumnFooters {
                     </span>
                 </td>
             </tr>
-            <tr #rowElement *ngIf="!dt.expandableRowGroups||dt.isRowGroupExpanded(rowData)" [class]="dt.getRowStyleClass(rowData,rowIndex)"
+            <tr #rowElement *ngIf="!dt.expandableRowGroups||dt.isRowGroupExpanded(rowData)" [class]="dt.getRowStyleClass(rowData,rowIndex)" [tabindex]="dt.selectionMode ? rowIndex : -1"
                     (click)="dt.handleRowClick($event, rowData)" (dblclick)="dt.rowDblclick($event,rowData)" (contextmenu)="dt.onRowRightClick($event,rowData)" (touchend)="dt.handleRowTouchEnd($event)"
-                    [ngClass]="{'ui-datatable-even':even&&dt.rowGroupMode!='rowspan','ui-datatable-odd':odd&&dt.rowGroupMode!='rowspan','ui-state-highlight': dt.isSelected(rowData)}">
+                    [ngClass]="{'ui-datatable-even':even&&dt.rowGroupMode!='rowspan','ui-datatable-odd':odd&&dt.rowGroupMode!='rowspan','ui-state-highlight': dt.isSelected(rowData)}"
+                    (keydown)="dt.onRowKeydown($event,rowData,rowIndex)">
                 <ng-template ngFor let-col [ngForOf]="columns" let-colIndex="index">
                     <td #cell *ngIf="!dt.rowGroupMode || (dt.rowGroupMode == 'subheader') ||
                         (dt.rowGroupMode=='rowspan' && ((dt.sortField==col.field && dt.rowGroupMetadata[dt.resolveFieldData(rowData,dt.sortField)].index == rowIndex) || (dt.sortField!=col.field)))"
@@ -1441,6 +1442,31 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
         }
 
         return false;
+    }
+
+    onRowKeydown(event, rowData: any, rowIndex: number) {
+        // Up arrow
+        if (event.target.nodeName === 'TR') {
+            if (event.keyCode == 38) {
+                if (event.target.previousElementSibling) {
+                    this.domHandler.invokeElementMethod(event.target.previousElementSibling, 'focus');
+                    event.preventDefault();
+                }
+            }
+            // Down Arrow
+            else if (event.keyCode == 40) {
+                if (event.target.nextElementSibling) {
+                    this.domHandler.invokeElementMethod(event.target.nextElementSibling, 'focus');
+                    event.preventDefault();
+                }
+            }
+            // Space
+            else if (event.keyCode == 32) {
+                // Select the row.
+                this.handleRowClick(event, rowData);
+                event.preventDefault();
+            }
+        }
     }
 
     equals(data1, data2) {
