@@ -207,10 +207,6 @@ export class ColumnFooters {
                 </td>
             </tr>
         </ng-template>
-
-        <tr *ngIf="dt.isEmpty()" class="ui-widget-content">
-            <td [attr.colspan]="dt.visibleColumns().length" class="ui-datatable-emptymessage">{{dt.emptyMessage}}</td>
-        </tr>
     `
 })
 export class TableBody {
@@ -384,10 +380,9 @@ export class ScrollableView implements AfterViewInit,AfterViewChecked,OnDestroy 
             });
         }
 
-        if(!this.frozen)
+        if (!this.frozen) {
             this.alignScrollBar();
-        else
-            this.scrollBody.style.paddingBottom = this.domHandler.calculateScrollbarWidth() + 'px';
+        }
     }
 
     visibleColumns() {
@@ -470,6 +465,10 @@ export class ScrollableView implements AfterViewInit,AfterViewChecked,OnDestroy 
                         [ngClass]="{'ui-datatable-unfrozen-view': frozenColumns}"></div>
                 </div>
             </ng-template>
+
+            <div *ngIf="isEmpty()" class="ui-widget-content ui-datatable-emptymessage" style="display:flex;justify-content: center;border-top: 0px;">
+                <span style="align-self: center">{{emptyMessage}}</span>
+            </div>
 
             <p-paginator [rows]="rows" [first]="first" [totalRecords]="totalRecords" [pageLinkSize]="pageLinks" styleClass="ui-paginator-bottom" [alwaysShow]="alwaysShowPaginator"
                 (onPageChange)="onPageChange($event)" [rowsPerPageOptions]="rowsPerPageOptions" *ngIf="paginator && paginatorPosition!='top' || paginatorPosition =='both'" styleClass="ui-paginator-bottom"></p-paginator>
