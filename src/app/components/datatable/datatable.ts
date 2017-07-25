@@ -1214,7 +1214,21 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
         let targetNode = event.target.nodeName;
         if(this.editable) {
             let cell = this.findCell(event.target);
-            let column = this.columns[this.domHandler.index(cell)];
+
+            // find index of last frozen column
+            // I believe the frozen columns are always going to be on the "left" side of the columns list
+            let frozenCount = 0;
+            for(let column of this.columns) {
+                if (column.frozen) {
+                    ++frozenCount;
+                }
+                else {
+                    break;
+                }
+            }
+
+            let cellIndex = this.domHandler.index(cell) + frozenCount;
+            let column = this.columns[cellIndex];
             if(column.editable) {
                 this.switchCellToEditMode(cell, column, rowData);
                 return;
@@ -1685,7 +1699,7 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
     }
 
     switchCellToEditMode(cell: any, column: Column, rowData: any) {
-        if(!this.selectionMode && this.editable && column.editable) {
+        if(this.editable && column.editable) {
             this.editorClick = true;
 
             if(cell != this.editingCell) {
