@@ -998,6 +998,8 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
     }
 
     paginate() {
+        this.closeCell();
+
         if(this.lazy)
             this.onLazyLoad.emit(this.createLazyLoadMetadata());
         else
@@ -1313,6 +1315,22 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
         }
     }
 
+    getCellIndex(cell) {
+        // find index of last frozen column
+        // I believe the frozen columns are always going to be on the "left" side of the columns list
+        let frozenCount = 0;
+        for (let column of this.columns) {
+            if (column.frozen) {
+                ++frozenCount;
+            }
+            else {
+                break;
+            }
+        }
+
+        return this.domHandler.index(cell) + frozenCount;
+    }
+
     handleRowClick(event: MouseEvent, rowData: any, index: number) {
         if(this.preventRowClickPropagation) {
             this.preventRowClickPropagation = false;
@@ -1322,20 +1340,7 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
         let targetNode = (<HTMLElement> event.target).nodeName;
         if(this.editable) {
             let cell = this.findCell(event.target);
-
-            // find index of last frozen column
-            // I believe the frozen columns are always going to be on the "left" side of the columns list
-            let frozenCount = 0;
-            for(let column of this.columns) {
-                if (column.frozen) {
-                    ++frozenCount;
-                }
-                else {
-                    break;
-                }
-            }
-
-            let cellIndex = this.domHandler.index(cell) + frozenCount;
+            let cellIndex = this.getCellIndex(cell);
             let column = this.columns[cellIndex];
             if(column.editable) {
                 this.switchCellToEditMode(cell, column, rowData);
@@ -1840,8 +1845,8 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
             this.bindDocumentEditListener();
 
             if(cell != this.editingCell) {
-                if(this.editingCell && this.domHandler.find(this.editingCell, '.ng-invalid.ng-dirty').length == 0) {
-                    this.domHandler.removeClass(this.editingCell, 'ui-cell-editing');
+                if (this.editingCell && this.domHandler.find(this.editingCell, '.ng-invalid.ng-dirty').length == 0) {
+                    this.closeCell();
                 }
 
                 this.editingCell = cell;
@@ -1863,10 +1868,15 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
     }
 
     closeCell() {
-        if(this.editingCell) {
+        if (this.editingCell) {
+            let cellIndex = this.getCellIndex(this.editingCell);
+            let column = this.columns[cellIndex];
+            let rowIndex = this.domHandler.index(this.editingCell.parentElement);
+            let rowData = this.value[rowIndex];
             this.domHandler.removeClass(this.editingCell, 'ui-cell-editing');
-            this.editingCell = null;
             this.unbindDocumentEditListener();
+            this.onEditComplete.emit({ column: column, data: rowData, index: rowIndex });
+            this.editingCell = null;
         }
     }
 
