@@ -42,7 +42,7 @@ export const DROPDOWN_VALUE_ACCESSOR: any = {
                     <span class="fa fa-search"></span>
                 </div>
                 <div #itemswrapper class="ui-dropdown-items-wrapper" [style.max-height]="scrollHeight||'auto'">
-                    <ul class="ui-dropdown-items ui-dropdown-list ui-widget-content ui-widget ui-corner-all ui-helper-reset" *ngIf="panelVisible">
+                    <ul class="ui-dropdown-items ui-dropdown-list ui-widget-content ui-widget ui-corner-all ui-helper-reset" *ngIf="lazy ? panelVisible : true">
                         <li *ngFor="let option of optionsToDisplay;let i=index" 
                             [ngClass]="{'ui-dropdown-item ui-corner-all':true, 'ui-state-highlight':(selectedOption == option), 
                             'ui-dropdown-item-empty':!option.label||option.label.length === 0}"
@@ -106,6 +106,8 @@ export class Dropdown implements OnInit,AfterViewInit,AfterContentInit,AfterView
     @Input() dataKey: string;
     
     @Input() filterBy: string = 'label';
+    
+    @Input() lazy: boolean = true;
     
     @Output() onChange: EventEmitter<any> = new EventEmitter();
     
@@ -212,6 +214,10 @@ export class Dropdown implements OnInit,AfterViewInit,AfterContentInit,AfterView
         this.panel = <HTMLDivElement> this.panelViewChild.nativeElement; 
         this.itemsWrapper = <HTMLDivElement> this.itemsWrapperViewChild.nativeElement; 
         
+        if(this.editable) {
+            this.updateEditableLabel();
+        }
+        
         this.updateDimensions();
         this.initialized = true;
         
@@ -229,7 +235,7 @@ export class Dropdown implements OnInit,AfterViewInit,AfterContentInit,AfterView
     
     updateEditableLabel(): void {
         if(this.editableInputViewChild && this.editableInputViewChild.nativeElement) {
-            this.editableInputViewChild.nativeElement.value = this.value || (this.selectedOption ? this.selectedOption.label : '');
+            this.editableInputViewChild.nativeElement.value = (this.selectedOption ? this.selectedOption.label : this.value||'');
         }
     }
         
@@ -242,15 +248,18 @@ export class Dropdown implements OnInit,AfterViewInit,AfterContentInit,AfterView
     }
     
     selectItem(event, option) {
-        this.selectedOption = option;
-        this.value = option.value;
-                
-        this.onModelChange(this.value);
-        this.updateEditableLabel();
-        this.onChange.emit({
-            originalEvent: event,
-            value: this.value
-        });
+        if(this.selectedOption != option) {
+            this.selectedOption = option;
+            this.value = option.value;
+                    
+            this.onModelChange(this.value);
+            this.updateEditableLabel();
+            this.onChange.emit({
+                originalEvent: event,
+                value: this.value
+            });
+        } 
+        
     }
     
     ngAfterViewChecked() {
@@ -261,7 +270,8 @@ export class Dropdown implements OnInit,AfterViewInit,AfterContentInit,AfterView
         
         if(this.optionsChanged && this.panelVisible) {
             this.optionsChanged = false;
-            this.alignPanel();
+            
+            setTimeout(() => this.alignPanel(), 1);
         }
         
         if(this.selectedOptionUpdated && this.itemsWrapper) {
@@ -454,7 +464,7 @@ export class Dropdown implements OnInit,AfterViewInit,AfterContentInit,AfterView
 
             //space
             case 32:
-                this.panelVisible = !this.panelVisible;
+                this.show();
                 
                 event.preventDefault();
             break;
@@ -469,7 +479,7 @@ export class Dropdown implements OnInit,AfterViewInit,AfterContentInit,AfterView
             //escape and tab
             case 27:
             case 9:
-                this.panelVisible = false;
+                this.hide();
             break;
         }
     }
