@@ -724,6 +724,8 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
 
     globalFilterFunction: any;
 
+    globalResizeFunction: any;
+
     columnsSubscription: Subscription;
 
     totalRecordsChanged: boolean;
@@ -799,6 +801,16 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
                     this._filter();
                     this.filterTimeout = null;
                 }, this.filterDelay);
+            });
+        }
+
+        if (this.columnResizeMode === 'fill') {
+            this.globalResizeFunction = this.renderer.listen("window", "resize", () => {
+                let view = this.domHandler.findSingle(this.el.nativeElement, '.ui-datatable-unfrozen-view');
+                if (!view) {
+                    view = this.el.nativeElement;
+                }
+                this.extendLastColumn(view);
             });
         }
     }
@@ -2164,10 +2176,13 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
                 col.style.width = col.desiredWidth + 'px';
             }
 
+            let lastColumn = columns[columns.length - 1];
             if (desiredWidth < tableWidth) {
                 // Auto fit the last column.
-                let lastColumn = columns[columns.length - 1];
                 lastColumn.style.width = '';
+            }
+            else {
+                lastColumn.style.width = lastColumn.desiredWidth + 'px';
             }
         }
     }
@@ -2184,12 +2199,17 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
 
         let columnElements = this.domHandler.find(view, 'th.ui-resizable-column');
         let columns = this.columns.filter(col => !col.frozen);
-        for (let i = 0; i < columns.length; i++) {
-            let column = columns[i];
-            if (column.style && column.style.width !== undefined) {
-                columnElements[i].style.width = column.style.width;
+
+        columns.forEach(col => {
+            if (col.style && col.style.width !== undefined) {
+                for (let i = 0; i < columnElements.length; ++i) {
+                    let colElem = columnElements[i];
+                    if (colElem.children[1].innerText === col.header) {
+                        colElem.style.width = col.style.width;
+                    }
+                }
             }
-        }
+        });
 
         if (this.scrollable) {
             let colGroup = this.domHandler.findSingle(view, 'colgroup.ui-datatable-scrollable-colgroup');
@@ -2573,6 +2593,10 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
 
         if(this.resizableColumns) {
             this.unbindColumnResizeEvents();
+        }
+
+        if (this.globalResizeFunction) {
+            this.globalResizeFunction();
         }
 
         this.unbindDocumentEditListener();
