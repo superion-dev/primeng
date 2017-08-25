@@ -106,6 +106,8 @@ export class Dropdown implements OnInit,AfterViewInit,AfterContentInit,AfterView
     @Input() dataKey: string;
     
     @Input() filterBy: string = 'label';
+
+    @Input() filterMethod: string = 'contains';
     
     @Input() lazy: boolean = true;
     
@@ -520,7 +522,27 @@ export class Dropdown implements OnInit,AfterViewInit,AfterContentInit,AfterView
     activateFilter() {
         let searchFields: string[] = this.filterBy.split(',');
         if(this.options && this.options.length) {
-            this.optionsToDisplay = this.objectUtils.filter(this.options, searchFields, this.filterValue);
+            if (this.filterMethod === "startswith") {
+                let filteredOptions = [];
+                let lowerFilterValue = this.filterValue.toLowerCase();
+                // Searching for items that start with the filter value
+                this.options.forEach(option => {
+                    for (let field of searchFields) {
+                        if (option[field].toLowerCase().lastIndexOf(lowerFilterValue, 0)) {
+                            // If we found a match then we need to break
+                            // This is to prevent duplicate entries from appearing in the list with multiple filterBy values
+                            filteredOptions.push(option);
+                            break; 
+                        }
+                    }
+                });
+                this.optionsToDisplay = filteredOptions;
+            }
+            else {
+                // This seems to perform a standards contains search
+                this.optionsToDisplay = this.objectUtils.filter(this.options, searchFields, this.filterValue);
+            }
+            
             this.optionsChanged = true;
         }
     }
