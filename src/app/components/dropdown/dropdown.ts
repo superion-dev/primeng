@@ -532,7 +532,7 @@ export class Dropdown implements OnInit,AfterViewInit,AfterContentInit,AfterView
                 // Searching for items that start with the filter value
                 this.options.forEach(option => {
                     for (let field of searchFields) {
-                        if (option[field].toLowerCase().lastIndexOf(lowerFilterValue, 0)) {
+                        if (option[field].toLowerCase().lastIndexOf(lowerFilterValue, 0) === 0) {
                             // If we found a match then we need to break
                             // This is to prevent duplicate entries from appearing in the list with multiple filterBy values
                             filteredOptions.push(option);
