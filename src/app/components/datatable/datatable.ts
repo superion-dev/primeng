@@ -905,6 +905,7 @@ export class DataTable implements AfterViewChecked,AfterViewInit,AfterContentIni
     }
 
     handleDataChange() {
+        this.closeCell();
         if(this.paginator) {
             this.updatePaginator();
         }
