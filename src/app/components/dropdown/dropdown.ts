@@ -384,10 +384,11 @@ export class Dropdown implements OnInit,AfterViewInit,AfterContentInit,AfterView
     }
 
     onShow() {
+        this.bindDocumentClickListener();
+
         if(this.options && this.options.length) {
             this.alignPanel();
-            this.bindDocumentClickListener();
-
+            
             let selectedListItem = this.domHandler.findSingle(this.itemsWrapper, '.ui-dropdown-item.ui-state-highlight');
             if(selectedListItem) {
                 this.domHandler.scrollInView(this.itemsWrapper, selectedListItem);
