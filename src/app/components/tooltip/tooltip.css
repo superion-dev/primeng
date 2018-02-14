@@ -19,7 +19,9 @@
    padding: .125em .5em;
    background-color: rgb(76, 76, 76);
    color: #ffffff;
+   overflow-wrap: break-word;
    white-space: pre-line;
+   word-wrap: break-word;
 }
 
 .ui-tooltip-arrow {
