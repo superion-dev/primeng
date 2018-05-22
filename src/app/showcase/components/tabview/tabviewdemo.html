@@ -70,7 +70,7 @@
             <h3>Import</h3>
 <pre>
 <code class="language-typescript" pCode ngNonBindable>
-import &#123;TabViewModule&#125; from 'primeng/primeng';
+import &#123;TabViewModule&#125; from 'primeng/tabview';
 </code>
 </pre>
 
@@ -88,6 +88,18 @@ import &#123;TabViewModule&#125; from 'primeng/primeng';
     &lt;/p-tabPanel&gt;
     &lt;p-tabPanel header="Header 3"&gt;
         Content 3    
+    &lt;/p-tabPanel&gt;
+&lt;/p-tabView&gt;
+</code>
+</pre>
+
+            <h3>Dynamic Tabs</h3>
+            <p>p-tabPanel components can be generated dynamically using ngFor, note that in this case due to an Angular issue selected property must be enabled manually.</p>
+<pre>
+<code class="language-markup" pCode ngNonBindable>
+&lt;p-tabView&gt;
+    &lt;p-tabPanel [header]="item.header" *ngFor="let item of items; let i = index" [selected]="i == 0"&gt;
+        {{item.content}}
     &lt;/p-tabPanel&gt;
 &lt;/p-tabView&gt;
 </code>
@@ -127,9 +139,9 @@ import &#123;TabViewModule&#125; from 'primeng/primeng';
 <pre>
 <code class="language-markup" pCode ngNonBindable>
 &lt;p-tabView [controlClose]="true" (onClose)="handleClose($event)"&gt;
-&lt;p-tabPanel header="Header Text" [closable]="true"&gt;
-    Content 1
-&lt;/p-tabPanel&gt;
+    &lt;p-tabPanel header="Header Text" [closable]="true"&gt;
+        Content 1
+    &lt;/p-tabPanel&gt;
 &lt;/p-tabView&gt;
 </code>
 </pre>
@@ -211,7 +223,31 @@ export class TabViewDemo &#123;
 </code>
 </pre>
 
-            <h3>Attributes for TabView</h3>
+            <h3>Lazy Loading</h3>
+            <p>Lazy loading helps initial load performance by only initializing the active tab, inactive tabs are not initialized until they get selected. A lazy
+            loaded tabpanel contents are cached by default so that upon reselection, they are not created again. You may use cache property on TabPanel to
+            configure this behavior. A TabPanel is specified as lazy when there is a ngTemplate with pTemplate="content" in it.</p>
+<pre>
+<code class="language-markup" pCode ngNonBindable>
+&lt;p-tabView&gt;
+    &lt;p-tabPanel header="Header 1"&gt;
+        Content 1
+    &lt;/p-tabPanel&gt;
+    &lt;p-tabPanel header="Header 2"&gt;
+        &lt;ng-template pTemplate="content"&gt;
+            Complex Content to Lazy Load
+        &lt;/ng-template&gt;
+    &lt;/p-tabPanel&gt;
+    &lt;p-tabPanel header="Header 3"&gt;
+        &lt;ng-template pTemplate="content"&gt;
+            Complex Content to Lazy Load
+        &lt;/ng-template&gt;
+    &lt;/p-tabPanel&gt;
+&lt;/p-tabView&gt;
+</code>
+</pre>
+
+            <h3>Properties of TabView</h3>
             <div class="doc-tablewrapper">
                 <table class="doc-table">
                     <thead>
@@ -251,7 +287,7 @@ export class TabViewDemo &#123;
                 </table>
             </div>
             
-            <h3>Attributes for TabPanel</h3>
+            <h3>Properties of TabPanel</h3>
             <div class="doc-tablewrapper">
                 <table class="doc-table">
                     <thead>
@@ -306,15 +342,14 @@ export class TabViewDemo &#123;
                             <td>Whether tab close is controlled at onClose event or not.</td>
                         </tr>
                         <tr>
-                            <td>lazy</td>
+                            <td>cache</td>
                             <td>boolean</td>
-                            <td>false</td>
-                            <td>Defines whether the elements of an inactive panel are created on load or on demand when the panel gets selected.</td>
+                            <td>true</td>
+                            <td>Whether a lazy loaded panel should avoid getting loaded again on reselection.</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
-
 
             <h3>Events</h3>
             <div class="doc-tablewrapper">

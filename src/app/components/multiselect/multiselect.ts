@@ -1,8 +1,10 @@
-import {NgModule,Component,ElementRef,OnInit,AfterViewInit,AfterViewChecked,DoCheck,OnDestroy,Input,Output,Renderer2,EventEmitter,IterableDiffers,forwardRef,ViewChild,ChangeDetectorRef} from '@angular/core';
+import {NgModule,Component,ElementRef,OnInit,AfterViewInit,AfterContentInit,AfterViewChecked,OnDestroy,Input,Output,Renderer2,EventEmitter,
+            forwardRef,ViewChild,ChangeDetectorRef,TemplateRef,ContentChildren,QueryList,ContentChild} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {SelectItem} from '../common/selectitem';
 import {DomHandler} from '../dom/domhandler';
 import {ObjectUtils} from '../utils/objectutils';
+import {SharedModule,PrimeTemplate,Footer} from '../common/shared';
 import {NG_VALUE_ACCESSOR, ControlValueAccessor} from '@angular/forms';
 
 export const MULTISELECT_VALUE_ACCESSOR: any = {
@@ -17,17 +19,18 @@ export const MULTISELECT_VALUE_ACCESSOR: any = {
         <div #container [ngClass]="{'ui-multiselect ui-widget ui-state-default ui-corner-all':true,'ui-state-focus':focus,'ui-state-disabled': disabled}" [ngStyle]="style" [class]="styleClass"
             (click)="onMouseclick($event,in)">
             <div class="ui-helper-hidden-accessible">
-                <input #in type="text" readonly="readonly" [attr.id]="inputId" (focus)="onFocus($event)" (blur)="onInputBlur($event)" [disabled]="disabled" [attr.tabindex]="tabindex">
+                <input #in type="text" readonly="readonly" [attr.id]="inputId" [attr.name]="name" (focus)="onInputFocus($event)" (blur)="onInputBlur($event)" [disabled]="disabled" [attr.tabindex]="tabindex" (keydown)="onInputKeydown($event)">
             </div>
             <div class="ui-multiselect-label-container" [title]="valuesAsString">
                 <label class="ui-multiselect-label ui-corner-all">{{valuesAsString}}</label>
             </div>
             <div [ngClass]="{'ui-multiselect-trigger ui-state-default ui-corner-right':true}">
-                <span class="fa fa-fw fa-caret-down ui-clickable"></span>
+                <span class="ui-multiselect-trigger-icon ui-clickable" [ngClass]="dropdownIcon"></span>
             </div>
-            <div #panel class="ui-multiselect-panel ui-widget ui-widget-content ui-corner-all ui-shadow" [style.display]="overlayVisible ? 'block' : 'none'" (click)="panelClick=true">
-                <div class="ui-widget-header ui-corner-all ui-multiselect-header ui-helper-clearfix">
-                    <div class="ui-chkbox ui-widget">
+            <div #panel [ngClass]="['ui-multiselect-panel ui-widget ui-widget-content ui-corner-all ui-shadow', panelStyleClass||'']" [ngStyle]="panelStyle"
+                [style.display]="overlayVisible ? 'block' : 'none'" (click)="panelClick=true">
+                <div class="ui-widget-header ui-corner-all ui-multiselect-header ui-helper-clearfix" [ngClass]="{'ui-multiselect-header-no-toggleall': !showToggleAll}" *ngIf="showHeader">
+                    <div class="ui-chkbox ui-widget" *ngIf="showToggleAll">
                         <div class="ui-helper-hidden-accessible">
                             <input #cb type="checkbox" readonly="readonly" [checked]="isAllChecked()">
                         </div>
@@ -36,9 +39,8 @@ export const MULTISELECT_VALUE_ACCESSOR: any = {
                         </div>
                     </div>
                     <div class="ui-multiselect-filter-container" *ngIf="filter">
-                        <input type="text" role="textbox" (input)="onFilter($event)"
-                                    class="ui-inputtext ui-widget ui-state-default ui-corner-all">
-                        <span class="fa fa-fw fa-search"></span>
+                        <input #filterInput type="text" role="textbox" (input)="onFilter($event)" class="ui-inputtext ui-widget ui-state-default ui-corner-all" [attr.placeholder]="filterPlaceHolder">
+                        <span class="ui-multiselect-filter-icon fa fa-fw fa-search"></span>
                     </div>
                     <a class="ui-multiselect-close ui-corner-all" href="#" (click)="close($event)">
                         <span class="fa fa-close"></span>
@@ -46,32 +48,34 @@ export const MULTISELECT_VALUE_ACCESSOR: any = {
                 </div>
                 <div class="ui-multiselect-items-wrapper">
                     <ul class="ui-multiselect-items ui-multiselect-list ui-widget-content ui-widget ui-corner-all ui-helper-reset" [style.max-height]="scrollHeight||'auto'">
-                        <li *ngFor="let option of options" class="ui-multiselect-item ui-corner-all" (click)="onItemClick($event,option.value)" 
+                        <li *ngFor="let option of options; let i = index" class="ui-multiselect-item ui-corner-all" (click)="onItemClick($event,option.value)" 
                             [style.display]="isItemVisible(option) ? 'block' : 'none'" [ngClass]="{'ui-state-highlight':isSelected(option.value)}">
                             <div class="ui-chkbox ui-widget">
                                 <div class="ui-helper-hidden-accessible">
-                                    <input type="checkbox" readonly="readonly" [checked]="isSelected(option.value)">
+                                    <input #itemcb type="checkbox" readonly="readonly" [checked]="isSelected(option.value)" (focus)="focusedItemCheckbox=itemcb" (blur)="focusedItemCheckbox=null" [attr.aria-label]="option.label">
                                 </div>
-                                <div class="ui-chkbox-box ui-widget ui-corner-all ui-state-default" [ngClass]="{'ui-state-active':isSelected(option.value)}">
+                                <div class="ui-chkbox-box ui-widget ui-corner-all ui-state-default" [ngClass]="{'ui-state-active':isSelected(option.value), 'ui-state-focus': (focusedItemCheckbox === itemcb)}">
                                     <span class="ui-chkbox-icon ui-clickable" [ngClass]="{'fa fa-check':isSelected(option.value)}"></span>
                                 </div>
                             </div>
-                            <label>{{option.label}}</label>
+                            <label *ngIf="!itemTemplate">{{option.label}}</label>
+                            <ng-container *ngTemplateOutlet="itemTemplate; context: {$implicit: option, index: i}"></ng-container>
                         </li>
                     </ul>
+                </div>
+                <div class="ui-multiselect-footer ui-widget-content" *ngIf="footerFacet">
+                    <ng-content select="p-footer"></ng-content>
                 </div>
             </div>
         </div>
     `,
+    host: {
+        '[class.ui-inputwrapper-filled]': 'filled',
+        '[class.ui-inputwrapper-focus]': 'focus'
+    },
     providers: [DomHandler,ObjectUtils,MULTISELECT_VALUE_ACCESSOR]
 })
-export class MultiSelect implements OnInit,AfterViewInit,AfterViewChecked,DoCheck,OnDestroy,ControlValueAccessor {
-
-    @Input() options: SelectItem[];
-
-    @Output() onChange: EventEmitter<any> = new EventEmitter();
-
-    @Output() onBlur: EventEmitter<any> = new EventEmitter();
+export class MultiSelect implements OnInit,AfterViewInit,AfterContentInit,AfterViewChecked,OnDestroy,ControlValueAccessor {
 
     @Input() scrollHeight: string = '200px';
     
@@ -80,12 +84,18 @@ export class MultiSelect implements OnInit,AfterViewInit,AfterViewChecked,DoChec
     @Input() style: any;
 
     @Input() styleClass: string;
+    
+    @Input() panelStyle: any;
+
+    @Input() panelStyleClass: string;
 
     @Input() inputId: string;
 
     @Input() disabled: boolean;
     
     @Input() filter: boolean = true;
+
+    @Input() filterPlaceHolder: string;
     
     @Input() overlayVisible: boolean;
 
@@ -94,16 +104,44 @@ export class MultiSelect implements OnInit,AfterViewInit,AfterViewChecked,DoChec
     @Input() appendTo: any;
     
     @Input() dataKey: string;
+        
+    @Input() name: string;
     
     @Input() displaySelectedLabel: boolean = true;
     
     @Input() maxSelectedLabels: number = 3;
     
     @Input() selectedItemsLabel: string = '{0} items selected';
+    
+    @Input() showToggleAll: boolean = true;
+    
+    @Input() resetFilterOnHide: boolean = false;
+    
+    @Input() dropdownIcon: string = 'fa fa-fw fa-caret-down';
+    
+    @Input() optionLabel: string;
+
+    @Input() showHeader: boolean = true;
         
     @ViewChild('container') containerViewChild: ElementRef;
     
     @ViewChild('panel') panelViewChild: ElementRef;
+    
+    @ViewChild('filterInput') filterInputChild: ElementRef;
+
+    @ContentChild(Footer) footerFacet;
+    
+    @ContentChildren(PrimeTemplate) templates: QueryList<any>;
+        
+    @Output() onChange: EventEmitter<any> = new EventEmitter();
+    
+    @Output() onFocus: EventEmitter<any> = new EventEmitter();
+
+    @Output() onBlur: EventEmitter<any> = new EventEmitter();
+    
+    @Output() onPanelShow: EventEmitter<any> = new EventEmitter();
+    
+    @Output() onPanelHide: EventEmitter<any> = new EventEmitter();
     
     public value: any[];
     
@@ -114,6 +152,8 @@ export class MultiSelect implements OnInit,AfterViewInit,AfterViewChecked,DoChec
     public valuesAsString: string;
         
     public focus: boolean;
+
+    filled: boolean;
     
     public documentClickListener: any;
     
@@ -130,18 +170,41 @@ export class MultiSelect implements OnInit,AfterViewInit,AfterViewChecked,DoChec
     public visibleOptions: SelectItem[];
     
     public filtered: boolean;
-        
-    public valueDiffer: any;
+            
+    public itemTemplate: TemplateRef<any>;
     
-    public optionsDiffer: any;
+    public focusedItemCheckbox: HTMLInputElement | null;
     
-    constructor(public el: ElementRef, public domHandler: DomHandler, public renderer: Renderer2, differs: IterableDiffers, public objectUtils: ObjectUtils, private cd: ChangeDetectorRef) {
-        this.valueDiffer = differs.find([]).create(null);
-        this.optionsDiffer = differs.find([]).create(null);
+    _options: any[];
+    
+    constructor(public el: ElementRef, public domHandler: DomHandler, public renderer: Renderer2, public objectUtils: ObjectUtils, private cd: ChangeDetectorRef) {}
+    
+    @Input() get options(): any[] {
+        return this._options;
+    }
+
+    set options(val: any[]) {
+        let opts = this.optionLabel ? this.objectUtils.generateSelectItems(val, this.optionLabel) : val;
+        this._options = opts;
+        this.updateLabel();
     }
     
     ngOnInit() {
         this.updateLabel();
+    }
+    
+    ngAfterContentInit() {
+        this.templates.forEach((item) => {
+            switch(item.getType()) {
+                case 'item':
+                    this.itemTemplate = item.template;
+                break;
+                
+                default:
+                    this.itemTemplate = item.template;
+                break;
+            }
+        });
     }
     
     ngAfterViewInit() {
@@ -170,20 +233,16 @@ export class MultiSelect implements OnInit,AfterViewInit,AfterViewChecked,DoChec
             this.filtered = false;
         }
     }
-    
-    ngDoCheck() {
-        let valueChanges = this.valueDiffer.diff(this.value);
-        let optionChanges = this.optionsDiffer.diff(this.options);
         
-        if(valueChanges||optionChanges) {
-            this.updateLabel();
-        }
-    }
-    
     writeValue(value: any) : void {
         this.value = value;
         this.updateLabel();
+        this.updateFilledState();
         this.cd.markForCheck();
+    }
+
+    updateFilledState() {
+        this.filled = (this.valuesAsString != null && this.valuesAsString.length > 0);
     }
     
     registerOnChange(fn: Function): void {
@@ -206,7 +265,9 @@ export class MultiSelect implements OnInit,AfterViewInit,AfterViewChecked,DoChec
             this.value = [...this.value||[],value];
         
         this.onModelChange(this.value);
-        this.onChange.emit({originalEvent: event, value: this.value});
+        this.onChange.emit({originalEvent: event, value: this.value, itemValue: value});
+        this.updateLabel();
+        this.updateFilledState();
     }   
     
     isSelected(value) {
@@ -241,9 +302,11 @@ export class MultiSelect implements OnInit,AfterViewInit,AfterViewChecked,DoChec
                 } 
             }
         }
+        
         checkbox.checked = !checkbox.checked;
         this.onModelChange(this.value);
         this.onChange.emit({originalEvent: event, value: this.value});
+        this.updateLabel();
     } 
     
     isAllChecked() {
@@ -264,11 +327,17 @@ export class MultiSelect implements OnInit,AfterViewInit,AfterViewChecked,DoChec
             this.domHandler.relativePosition(this.panel, this.container);
 
         this.domHandler.fadeIn(this.panel, 250);
+        this.onPanelShow.emit();
     }
     
     hide() {
         this.overlayVisible = false;
         this.unbindDocumentClickListener();
+        if(this.resetFilterOnHide){
+            this.filterValue = null;
+            this.filterInputChild.nativeElement.value = null;
+        }
+        this.onPanelHide.emit();
     }
     
     close(event) {
@@ -295,14 +364,34 @@ export class MultiSelect implements OnInit,AfterViewInit,AfterViewChecked,DoChec
         this.selfClick = true;
     }
     
-    onFocus(event) {
+    onInputFocus(event) {
         this.focus = true;
+        this.onFocus.emit({originalEvent: event});
     }
     
     onInputBlur(event) {
         this.focus = false;
         this.onBlur.emit({originalEvent: event});
         this.onModelTouched();
+    }
+    
+    onInputKeydown(event) {
+        switch(event.which) {
+            //down
+            case 40:
+                if(!this.overlayVisible && event.altKey) {
+                    this.show();
+                }
+                
+                event.preventDefault();
+            break;
+            
+            //escape and tab
+            case 27:
+            case 9:
+                this.hide();
+            break;
+        }
     }
     
     updateLabel() {
@@ -312,7 +401,7 @@ export class MultiSelect implements OnInit,AfterViewInit,AfterViewChecked,DoChec
                 let itemLabel = this.findLabelByValue(this.value[i]);
                 if (itemLabel) {
                     if(label.length > 0) {
-                        label = label + ',';
+                        label = label + ', ';
                     }
                     label = label + itemLabel;
                 }
@@ -322,9 +411,10 @@ export class MultiSelect implements OnInit,AfterViewInit,AfterViewChecked,DoChec
                 this.valuesAsString = label;
             }
             else {
-                let pattern = /{(.*?)}/,
-                newSelectedItemsLabel = this.selectedItemsLabel.replace(this.selectedItemsLabel.match(pattern)[0], this.value.length + '');
-                this.valuesAsString = newSelectedItemsLabel;
+                let pattern = /{(.*?)}/;
+                if (pattern.test(this.selectedItemsLabel)) {
+                    this.valuesAsString = this.selectedItemsLabel.replace(this.selectedItemsLabel.match(pattern)[0], this.value.length + '');
+                }
             }
         }
         else {
@@ -417,8 +507,8 @@ export class MultiSelect implements OnInit,AfterViewInit,AfterViewChecked,DoChec
 }
 
 @NgModule({
-    imports: [CommonModule],
-    exports: [MultiSelect],
+    imports: [CommonModule,SharedModule],
+    exports: [MultiSelect,SharedModule],
     declarations: [MultiSelect]
 })
 export class MultiSelectModule { }

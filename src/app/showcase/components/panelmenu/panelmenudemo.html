@@ -6,7 +6,7 @@
 </div>
 
 <div class="content-section implementation">
-    <p-panelMenu [model]="items" [style]="&#123;'width':'300px'&#125;"></p-panelMenu>
+    <p-panelMenu [model]="items" [style]="{'width':'300px'}" [multiple]="false"></p-panelMenu>
 </div>
 
 <div class="content-section documentation">
@@ -15,7 +15,8 @@
             <h3>Import</h3>
 <pre>
 <code class="language-typescript" pCode ngNonBindable>
-import &#123;PanelMenuModule,MenuItem&#125; from 'primeng/primeng';
+import &#123;PanelMenuModule&#125; from 'primeng/panelmenu';
+import &#123;MenuItem&#125; from 'primeng/api';
 </code>
 </pre>
 
@@ -146,6 +147,12 @@ export class PanelMenuDemo &#123;
                             <td>null</td>
                             <td>Style class of the component.</td>
                         </tr>
+                        <tr>
+                            <td>multiple</td>
+                            <td>boolean</td>
+                            <td>true</td>
+                            <td>Whether multiple tabs can be activated at the same time or not.</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -227,13 +234,13 @@ export class PanelMenuDemo &#123;
                         label: 'New', 
                         icon: 'fa-plus',
                         items: [
-                            &#123;label: 'Project'&#125;,
-                            &#123;label: 'Other'&#125;,
+                            &#123;label: 'Project', icon: 'fa-lock'&#125;,
+                            &#123;label: 'Other', icon: 'fa-list'&#125;
                         ]
                     &#125;,
-                    &#123;label: 'Open'&#125;,
+                    &#123;label: 'Open', icon: 'fa-external-link'&#125;,
                     &#123;separator: true&#125;,
-                    &#123;label: 'Quit'&#125;
+                    &#123;label: 'Quit', icon: 'fa-close'&#125;
                 ]
             &#125;,
             &#123;
@@ -249,7 +256,8 @@ export class PanelMenuDemo &#123;
                 icon: 'fa-question',
                 items: [
                     &#123;
-                        label: 'Contents'
+                        label: 'Contents',
+                        icon: 'fa-bars'
                     &#125;,
                     &#123;
                         label: 'Search', 
@@ -264,7 +272,8 @@ export class PanelMenuDemo &#123;
                                 ]
                             &#125;,
                             &#123;
-                                label: 'File'
+                                label: 'File',
+                                icon: 'fa-file',
                             &#125;
                     ]&#125;
                 ]

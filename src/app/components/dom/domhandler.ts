@@ -7,6 +7,8 @@ export class DomHandler {
 
     private calculatedScrollbarWidth: number = null;
 
+    private browser: any;
+
     public addClass(element: any, className: string): void {
         if (element.classList)
             element.classList.add(className);
@@ -64,6 +66,16 @@ export class DomHandler {
         for (var i = 0; i < children.length; i++) {
             if (children[i] == element) return num;
             if (children[i].nodeType == 1) num++;
+        }
+        return -1;
+    }
+
+    public indexWithinGroup(element: any, attributeName: string): number {
+        let children = element.parentNode.childNodes;
+        let num = 0;
+        for (var i = 0; i < children.length; i++) {
+            if (children[i] == element) return num;
+            if (children[i].attributes && children[i].attributes[attributeName] && children[i].nodeType == 1) num++;
         }
         return -1;
     }
@@ -186,7 +198,7 @@ export class DomHandler {
         let last = +new Date();
         let opacity = 0;
         let tick = function () {
-            opacity = +element.style.opacity + (new Date().getTime() - last) / duration;
+            opacity = +element.style.opacity.replace(",", ".") + (new Date().getTime() - last) / duration;
             element.style.opacity = opacity;
             last = +new Date();
 
@@ -328,6 +340,13 @@ export class DomHandler {
         };
     }
 
+    public replaceElementWith(element: any, replacementElement: any): any {
+        let parentNode = element.parentNode;
+        if(!parentNode) 
+            throw `Can't replace element`;
+        return parentNode.replaceChild(replacementElement, element);
+    }
+
     getUserAgent(): string {
         return navigator.userAgent;
     }
@@ -398,11 +417,11 @@ export class DomHandler {
         return scrollbarWidth;
     }
     
-    public invokeElementMethod(element: any, methodName: string, args?: any[]): void {
+    invokeElementMethod(element: any, methodName: string, args?: any[]): void {
         (element as any)[methodName].apply(element, args);
     }
     
-    public clearSelection(): void {
+    clearSelection(): void {
         if(window.getSelection) {
             if(window.getSelection().empty) {
                 window.getSelection().empty();
@@ -417,5 +436,40 @@ export class DomHandler {
                 //ignore IE bug
             }
         }
+    }
+
+    getBrowser() {
+        if(!this.browser) {
+            let matched = this.resolveUserAgent();
+            this.browser = {};
+
+            if (matched.browser) {
+                this.browser[matched.browser] = true;
+                this.browser['version'] = matched.version;
+            }
+
+            if (this.browser['chrome']) {
+                this.browser['webkit'] = true;
+            } else if (this.browser['webkit']) {
+                this.browser['safari'] = true;
+            }
+        }
+
+        return this.browser;
+    }
+
+    resolveUserAgent() {
+        let ua = navigator.userAgent.toLowerCase();
+        let match = /(chrome)[ \/]([\w.]+)/.exec(ua) ||
+            /(webkit)[ \/]([\w.]+)/.exec(ua) ||
+            /(opera)(?:.*version|)[ \/]([\w.]+)/.exec(ua) ||
+            /(msie) ([\w.]+)/.exec(ua) ||
+            ua.indexOf("compatible") < 0 && /(mozilla)(?:.*? rv:([\w.]+)|)/.exec(ua) ||
+            [];
+
+        return {
+            browser: match[1] || "",
+            version: match[2] || "0"
+        };
     }
 }

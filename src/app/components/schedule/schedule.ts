@@ -89,6 +89,8 @@ export class Schedule implements DoCheck,OnDestroy,OnInit,OnChanges,AfterViewChe
     
     @Input() dayRender: Function;
     
+    @Input() navLinks: boolean;
+    
     @Input() options: any;
     
     @Output() onDayClick: EventEmitter<any> = new EventEmitter();
@@ -116,6 +118,10 @@ export class Schedule implements DoCheck,OnDestroy,OnInit,OnChanges,AfterViewChe
     @Output() onViewRender: EventEmitter<any> = new EventEmitter();
     
     @Output() onViewDestroy: EventEmitter<any> = new EventEmitter();
+
+    @Output() onNavLinkDayClick: EventEmitter<any> = new EventEmitter();
+
+    @Output() onNavLinkWeekClick: EventEmitter<any> = new EventEmitter();
         
     initialized: boolean;
     
@@ -172,6 +178,7 @@ export class Schedule implements DoCheck,OnDestroy,OnInit,OnChanges,AfterViewChe
             eventConstraint: this.eventConstraint,
             eventRender: this.eventRender,
             dayRender: this.dayRender,
+            navLinks: this.navLinks,
             dayClick: (date, jsEvent, view) => {
                 this.onDayClick.emit({
                     'date': date,
@@ -269,6 +276,18 @@ export class Schedule implements DoCheck,OnDestroy,OnInit,OnChanges,AfterViewChe
                 'view': view,
                 'element': element
               });
+            },
+            navLinkDayClick: (weekStart, jsEvent) => {
+                this.onNavLinkDayClick.emit({
+                    'weekStart': weekStart,
+                    'event': jsEvent
+                });
+            },
+            navLinkWeekClick: (weekStart, jsEvent) => {
+                this.onNavLinkWeekClick.emit({
+                    'weekStart': weekStart,
+                    'event': jsEvent
+                });
             }
         };
                 
@@ -303,7 +322,9 @@ export class Schedule implements DoCheck,OnDestroy,OnInit,OnChanges,AfterViewChe
     initialize() {
         this.schedule = jQuery(this.el.nativeElement.children[0]);
         this.schedule.fullCalendar(this.config);
-        this.schedule.fullCalendar('addEventSource', this.events);
+        if(this.events) {
+            this.schedule.fullCalendar('addEventSource', this.events);
+        }
         this.initialized = true;
     }
      
@@ -312,7 +333,10 @@ export class Schedule implements DoCheck,OnDestroy,OnInit,OnChanges,AfterViewChe
         
         if(this.schedule && changes) {
             this.schedule.fullCalendar('removeEventSources');
-            this.schedule.fullCalendar('addEventSource', this.events);
+            
+            if(this.events) {
+                this.schedule.fullCalendar('addEventSource', this.events);
+            }
         }
     }
 

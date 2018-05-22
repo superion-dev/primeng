@@ -1,10 +1,10 @@
-import {NgModule,Component,ElementRef,Input,Output,EventEmitter,AfterContentInit,ContentChildren,QueryList,TemplateRef,IterableDiffers,forwardRef} from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {SelectItem} from '../common/selectitem';
-import {SharedModule,PrimeTemplate} from '../common/shared';
-import {DomHandler} from '../dom/domhandler';
-import {ObjectUtils} from '../utils/objectutils';
-import {NG_VALUE_ACCESSOR, ControlValueAccessor} from '@angular/forms';
+import { NgModule, Component, ElementRef, Input, Output, EventEmitter, AfterContentInit, ContentChildren, ContentChild, QueryList, TemplateRef, IterableDiffers, forwardRef, ChangeDetectorRef } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { SelectItem } from '../common/selectitem';
+import { SharedModule, PrimeTemplate, Footer, Header } from '../common/shared';
+import { DomHandler } from '../dom/domhandler';
+import { ObjectUtils } from '../utils/objectutils';
+import { NG_VALUE_ACCESSOR, ControlValueAccessor } from '@angular/forms';
 
 export const LISTBOX_VALUE_ACCESSOR: any = {
     provide: NG_VALUE_ACCESSOR,
@@ -15,44 +15,53 @@ export const LISTBOX_VALUE_ACCESSOR: any = {
 @Component({
     selector: 'p-listbox',
     template: `
-        <div [ngClass]="{'ui-listbox ui-inputtext ui-widget ui-widget-content ui-corner-all':true,'ui-state-disabled':disabled}" [ngStyle]="style" [class]="styleClass">
-            <div class="ui-widget-header ui-corner-all ui-listbox-header ui-helper-clearfix" *ngIf="(checkbox && multiple) || filter" [ngClass]="{'ui-listbox-header-w-checkbox': checkbox}">
-                <div class="ui-chkbox ui-widget" *ngIf="checkbox && multiple && showToggleAll">
-                    <div class="ui-helper-hidden-accessible">
-                        <input #cb type="checkbox" readonly="readonly" [checked]="allChecked">
-                    </div>
-                    <div class="ui-chkbox-box ui-widget ui-corner-all ui-state-default" [ngClass]="{'ui-state-active':allChecked}" (click)="toggleAll($event,cb)">
-                        <span class="ui-chkbox-icon ui-clickable" [ngClass]="{'fa fa-check':allChecked}"></span>
-                    </div>
-                </div>
-                <div class="ui-listbox-filter-container" *ngIf="filter">
-                    <input type="text" role="textbox" (input)="onFilter($event)" class="ui-inputtext ui-widget ui-state-default ui-corner-all" [disabled]="disabled">
-                    <span class="fa fa-search"></span>
-                </div>
-            </div>
-            <ul class="ui-listbox-list">
-                <li *ngFor="let option of options; let i = index;" [style.display]="isItemVisible(option) ? 'block' : 'none'"
-                    [ngClass]="{'ui-listbox-item ui-corner-all':true,'ui-state-highlight':isSelected(option)}"
-                    (click)="onOptionClick($event,option)" (dblclick)="onDoubleClick($event,option)" (touchend)="onOptionTouchEnd($event,option)">
-                    <div class="ui-chkbox ui-widget" *ngIf="checkbox && multiple" (click)="onCheckboxClick($event,option)">
-                        <div class="ui-helper-hidden-accessible">
-                            <input type="checkbox" [checked]="isSelected(option)" [disabled]="disabled">
-                        </div>
-                        <div class="ui-chkbox-box ui-widget ui-corner-all ui-state-default" [ngClass]="{'ui-state-active':isSelected(option)}">
-                            <span class="ui-chkbox-icon ui-clickable" [ngClass]="{'fa fa-check':isSelected(option)}"></span>
-                        </div>
-                    </div>
-                    <span *ngIf="!itemTemplate">{{option.label}}</span>
-                    <ng-template *ngIf="itemTemplate" [pTemplateWrapper]="itemTemplate" [item]="option" [index]="i"></ng-template>
-                </li>
-            </ul>
+    <div [ngClass]="{'ui-listbox ui-inputtext ui-widget ui-widget-content ui-corner-all':true,'ui-state-disabled':disabled,'ui-state-focus':focus}" [ngStyle]="style" [class]="styleClass">
+      <div class="ui-helper-hidden-accessible">
+        <input type="text" readonly="readonly" (focus)="onInputFocus($event)" (blur)="onInputBlur($event)">
+      </div>
+      <div class="ui-widget-header ui-corner-all ui-listbox-header ui-helper-clearfix" *ngIf="headerFacet">
+        <ng-content select="p-header"></ng-content>
+      </div>
+      <div class="ui-widget-header ui-corner-all ui-listbox-header ui-helper-clearfix" *ngIf="(checkbox && multiple) || filter" [ngClass]="{'ui-listbox-header-w-checkbox': checkbox}">
+        <div class="ui-chkbox ui-widget" *ngIf="checkbox && multiple && showToggleAll">
+          <div class="ui-helper-hidden-accessible">
+            <input #cb type="checkbox" readonly="readonly" [checked]="allChecked">
+          </div>
+          <div class="ui-chkbox-box ui-widget ui-corner-all ui-state-default" [ngClass]="{'ui-state-active':allChecked}" (click)="toggleAll($event,cb)">
+            <span class="ui-chkbox-icon ui-clickable" [ngClass]="{'fa fa-check':allChecked}"></span>
+          </div>
         </div>
-    `,
-    providers: [DomHandler,ObjectUtils,LISTBOX_VALUE_ACCESSOR]
+        <div class="ui-listbox-filter-container" *ngIf="filter">
+          <input type="text" role="textbox" (input)="onFilter($event)" class="ui-inputtext ui-widget ui-state-default ui-corner-all" [disabled]="disabled">
+          <span class="ui-listbox-filter-icon fa fa-search"></span>
+        </div>
+      </div>
+      <div class="ui-listbox-list-wrapper" [ngStyle]="listStyle">
+        <ul class="ui-listbox-list">
+          <li *ngFor="let option of options; let i = index;" [style.display]="isItemVisible(option) ? 'block' : 'none'"
+              [ngClass]="{'ui-listbox-item ui-corner-all':true,'ui-state-highlight':isSelected(option)}"
+              (click)="onOptionClick($event,option)" (dblclick)="onDoubleClick($event,option)" (touchend)="onOptionTouchEnd($event,option)">
+            <div class="ui-chkbox ui-widget" *ngIf="checkbox && multiple" (click)="onCheckboxClick($event,option)">
+              <div class="ui-helper-hidden-accessible">
+                <input type="checkbox" [checked]="isSelected(option)" [disabled]="disabled">
+              </div>
+              <div class="ui-chkbox-box ui-widget ui-corner-all ui-state-default" [ngClass]="{'ui-state-active':isSelected(option)}">
+                <span class="ui-chkbox-icon ui-clickable" [ngClass]="{'fa fa-check':isSelected(option)}"></span>
+              </div>
+            </div>
+            <span *ngIf="!itemTemplate">{{option.label}}</span>
+            <ng-container *ngTemplateOutlet="itemTemplate; context: {$implicit: option, index: i}"></ng-container>
+          </li>
+        </ul>
+      </div>
+      <div class="ui-listbox-footer ui-widget-header ui-corner-all" *ngIf="footerFacet">
+        <ng-content select="p-footer"></ng-content>
+      </div>
+    </div>
+  `,
+    providers: [DomHandler, ObjectUtils, LISTBOX_VALUE_ACCESSOR]
 })
-export class Listbox implements AfterContentInit,ControlValueAccessor {
-
-    @Input() options: SelectItem[];
+export class Listbox implements AfterContentInit, ControlValueAccessor {
 
     @Input() multiple: boolean;
 
@@ -60,29 +69,39 @@ export class Listbox implements AfterContentInit,ControlValueAccessor {
 
     @Input() styleClass: string;
 
+    @Input() listStyle: any;
+
+    @Input() readonly: boolean;
+
     @Input() disabled: boolean;
 
     @Input() checkbox: boolean = false;
 
     @Input() filter: boolean = false;
-    
+
+    @Input() filterMode: string = 'contains';
+
     @Input() metaKeySelection: boolean = true;
-    
+
     @Input() dataKey: string;
-    
+
     @Input() showToggleAll: boolean = true;
+
+    @Input() optionLabel: string;
 
     @Output() onChange: EventEmitter<any> = new EventEmitter();
 
     @Output() onDblClick: EventEmitter<any> = new EventEmitter();
 
+    @ContentChild(Header) headerFacet;
+
+    @ContentChild(Footer) footerFacet;
+
     @ContentChildren(PrimeTemplate) templates: QueryList<any>;
-    
+
     public itemTemplate: TemplateRef<any>;
 
     public filterValue: string;
-    
-    public visibleOptions: SelectItem[];
 
     public filtered: boolean;
 
@@ -93,27 +112,41 @@ export class Listbox implements AfterContentInit,ControlValueAccessor {
     public onModelTouched: Function = () => { };
 
     public checkboxClick: boolean;
-    
+
     public optionTouched: boolean;
 
-    constructor(public el: ElementRef, public domHandler: DomHandler, public objectUtils: ObjectUtils) {}
-    
+    public focus: boolean;
+
+    public _options: any[];
+
+    constructor(public el: ElementRef, public domHandler: DomHandler, public objectUtils: ObjectUtils, public cd: ChangeDetectorRef) { }
+
+    @Input() get options(): any[] {
+        return this._options;
+    }
+
+    set options(val: any[]) {
+        let opts = this.optionLabel ? this.objectUtils.generateSelectItems(val, this.optionLabel) : val;
+        this._options = opts;
+    }
+
     ngAfterContentInit() {
         this.templates.forEach((item) => {
-            switch(item.getType()) {
+            switch (item.getType()) {
                 case 'item':
                     this.itemTemplate = item.template;
-                break;
-                
+                    break;
+
                 default:
                     this.itemTemplate = item.template;
-                break;
+                    break;
             }
         });
     }
 
     writeValue(value: any): void {
         this.value = value;
+        this.cd.markForCheck();
     }
 
     registerOnChange(fn: Function): void {
@@ -129,12 +162,12 @@ export class Listbox implements AfterContentInit,ControlValueAccessor {
     }
 
     onOptionClick(event, option) {
-        if(this.disabled) {
+        if (this.disabled || this.readonly) {
             return;
         }
-        
-        if(!this.checkboxClick) {
-            if(this.multiple)
+
+        if (!this.checkboxClick) {
+            if (this.multiple)
                 this.onOptionClickMultiple(event, option);
             else
                 this.onOptionClickSingle(event, option);
@@ -142,28 +175,28 @@ export class Listbox implements AfterContentInit,ControlValueAccessor {
         else {
             this.checkboxClick = false;
         }
-        
+
         this.optionTouched = false;
     }
-    
+
     onOptionTouchEnd(event, option) {
-        if(this.disabled) {
+        if (this.disabled || this.readonly) {
             return;
         }
-        
+
         this.optionTouched = true;
     }
 
-    onOptionClickSingle(event, option) {        
+    onOptionClickSingle(event, option) {
         let selected = this.isSelected(option);
         let valueChanged = false;
         let metaSelection = this.optionTouched ? false : this.metaKeySelection;
 
-        if(metaSelection) {
+        if (metaSelection) {
             let metaKey = (event.metaKey || event.ctrlKey);
-            
-            if(selected) {
-                if(metaKey) {
+
+            if (selected) {
+                if (metaKey) {
                     this.value = null;
                     valueChanged = true;
                 }
@@ -174,11 +207,11 @@ export class Listbox implements AfterContentInit,ControlValueAccessor {
             }
         }
         else {
-            this.value = selected ? null : option.value;            
+            this.value = selected ? null : option.value;
             valueChanged = true;
         }
 
-        if(valueChanged) {
+        if (valueChanged) {
             this.onModelChange(this.value);
             this.onChange.emit({
                 originalEvent: event,
@@ -187,16 +220,16 @@ export class Listbox implements AfterContentInit,ControlValueAccessor {
         }
     }
 
-    onOptionClickMultiple(event, option) {        
+    onOptionClickMultiple(event, option) {
         let selected = this.isSelected(option);
         let valueChanged = false;
         let metaSelection = this.optionTouched ? false : this.metaKeySelection;
 
-        if(metaSelection) {
+        if (metaSelection) {
             let metaKey = (event.metaKey || event.ctrlKey);
-            
-            if(selected) {
-                if(metaKey) {
+
+            if (selected) {
+                if (metaKey) {
                     this.removeOption(option);
                 }
                 else {
@@ -211,13 +244,13 @@ export class Listbox implements AfterContentInit,ControlValueAccessor {
             }
         }
         else {
-            if(selected) {
+            if (selected) {
                 this.removeOption(option);
             }
             else {
-                this.value = [...this.value||[],option.value];
+                this.value = [...this.value || [], option.value];
             }
-            
+
             valueChanged = true;
         }
 
@@ -229,7 +262,7 @@ export class Listbox implements AfterContentInit,ControlValueAccessor {
             });
         }
     }
-    
+
     removeOption(option: any): void {
         this.value = this.value.filter(val => !this.objectUtils.equals(val, option.value, this.dataKey));
     }
@@ -237,10 +270,10 @@ export class Listbox implements AfterContentInit,ControlValueAccessor {
     isSelected(option: SelectItem) {
         let selected = false;
 
-        if(this.multiple) {
-            if(this.value) {
-                for(let val of this.value) {
-                    if(this.objectUtils.equals(val, option.value, this.dataKey)) {
+        if (this.multiple) {
+            if (this.value) {
+                for (let val of this.value) {
+                    if (this.objectUtils.equals(val, option.value, this.dataKey)) {
                         selected = true;
                         break;
                     }
@@ -255,75 +288,76 @@ export class Listbox implements AfterContentInit,ControlValueAccessor {
     }
 
     get allChecked(): boolean {
-        if(this.filterValue && this.filterValue.trim().length)
+        if (this.filterValue)
             return this.allFilteredSelected();
         else
-            return this.value&&this.options&&(this.value.length == this.options.length);
+            return this.value && this.options && (this.value.length === this.options.length);
     }
-    
+
     allFilteredSelected(): boolean {
         let allSelected: boolean;
-        if(this.value && this.visibleOptions && this.visibleOptions.length) {
+        if (this.value && this.options && this.options.length)  {
             allSelected = true;
-            for(let opt of this.visibleOptions) {
-                let selected: boolean;
-                for(let val of this.value) {
-                    if(this.objectUtils.equals(val, opt.value, this.dataKey)) {
-                        selected = true;
+            for (let opt of this.options) {
+                if (this.isItemVisible(opt)) {
+                    if (!this.isSelected(opt)) {
+                        allSelected = false;
+                        break;
                     }
-                }
-                
-                if(!selected) {
-                    allSelected = false;
-                    break;
                 }
             }
         }
-                
+
         return allSelected;
     }
 
     onFilter(event) {
-        this.filterValue = event.target.value.trim().toLowerCase();
-        this.visibleOptions = [];
-        for(let i = 0; i < this.options.length; i++) {
-            let option = this.options[i];
-            if(option.label.toLowerCase().indexOf(this.filterValue.toLowerCase()) > -1) {
-                this.visibleOptions.push(option);
-            }
-        }
-        this.filtered = true;
+        let query = event.target.value.trim().toLowerCase();
+        this.filterValue = query.length ? query : null;
     }
 
     toggleAll(event, checkbox) {
-        if(this.disabled || (this.filterValue && this.filterValue.trim().length && (!this.visibleOptions || this.visibleOptions.length === 0))) {
+        if (this.disabled || this.readonly || !this.options || this.options.length === 0) {
             return;
         }
-        
-        if(checkbox.checked) {
+
+        if (checkbox.checked) {
             this.value = [];
         }
         else {
-            let opts = (this.visibleOptions&&this.visibleOptions.length) ? this.visibleOptions : this.options;
-            if(opts) {
+            if (this.options) {
                 this.value = [];
-                for(let i = 0; i < opts.length; i++) {
-                    this.value.push(opts[i].value);
-                } 
+                for (let i = 0; i < this.options.length; i++) {
+                    let opt = this.options[i];
+                    if (this.isItemVisible(opt)) {
+                        this.value.push(opt.value);
+                    }
+                }
             }
         }
         checkbox.checked = !checkbox.checked;
         this.onModelChange(this.value);
-        this.onChange.emit({originalEvent: event, value: this.value});
-    } 
+        this.onChange.emit({ originalEvent: event, value: this.value });
+    }
 
     isItemVisible(option: SelectItem): boolean {
-        if(this.filterValue && this.filterValue.trim().length) {
-            for(let i = 0; i < this.visibleOptions.length; i++) {
-                if(this.visibleOptions[i].value == option.value) {
-                    return true;
-                }
+        if (this.filterValue) {
+            let visible;
+
+            switch (this.filterMode) {
+                case 'startsWith':
+                    visible = option.label.toLowerCase().indexOf(this.filterValue.toLowerCase()) === 0;
+                    break;
+
+                case 'contains':
+                    visible = option.label.toLowerCase().indexOf(this.filterValue.toLowerCase()) > -1;
+                    break;
+
+                default:
+                    visible = true;
             }
+
+            return visible;
         }
         else {
             return true;
@@ -331,30 +365,30 @@ export class Listbox implements AfterContentInit,ControlValueAccessor {
     }
 
     onDoubleClick(event: Event, option: SelectItem): any {
-        if(this.disabled) {
+        if (this.disabled || this.readonly) {
             return;
         }
-        
+
         this.onDblClick.emit({
             originalEvent: event,
             value: this.value
         })
     }
-    
+
     onCheckboxClick(event: Event, option: SelectItem) {
-        if(this.disabled) {
+        if (this.disabled || this.readonly) {
             return;
         }
-        
+
         this.checkboxClick = true;
         let selected = this.isSelected(option);
 
-        if(selected) {
+        if (selected) {
             this.removeOption(option);
         }
         else {
             this.value = this.value ? this.value : [];
-            this.value = [...this.value,option.value];
+            this.value = [...this.value, option.value];
         }
 
         this.onModelChange(this.value);
@@ -362,6 +396,14 @@ export class Listbox implements AfterContentInit,ControlValueAccessor {
             originalEvent: event,
             value: this.value
         });
+    }
+
+    onInputFocus(event) {
+        this.focus = true;
+    }
+
+    onInputBlur(event) {
+        this.focus = false;
     }
 }
 
@@ -371,3 +413,4 @@ export class Listbox implements AfterContentInit,ControlValueAccessor {
     declarations: [Listbox]
 })
 export class ListboxModule { }
+

@@ -1,9 +1,11 @@
-import {NgModule,Component,ElementRef,AfterViewInit,AfterViewChecked,OnDestroy,OnInit,Input,Output,SimpleChange,EventEmitter,forwardRef,Renderer2,ViewChild,ChangeDetectorRef} from '@angular/core';
+import {NgModule,Component,ElementRef,AfterViewInit,AfterViewChecked,OnDestroy,OnInit,Input,Output,SimpleChange,EventEmitter,forwardRef,Renderer2,
+        ViewChild,ChangeDetectorRef,TemplateRef,ContentChildren,QueryList} from '@angular/core';
 import {trigger,state,style,transition,animate} from '@angular/animations';
 import {CommonModule} from '@angular/common';
 import {ButtonModule} from '../button/button';
 import {DomHandler} from '../dom/domhandler';
-import {AbstractControl, NG_VALUE_ACCESSOR, NG_VALIDATORS, ControlValueAccessor} from '@angular/forms';
+import {SharedModule,PrimeTemplate} from '../common/shared';
+import {NG_VALUE_ACCESSOR, ControlValueAccessor} from '@angular/forms';
 
 export const CALENDAR_VALUE_ACCESSOR: any = {
   provide: NG_VALUE_ACCESSOR,
@@ -11,19 +13,15 @@ export const CALENDAR_VALUE_ACCESSOR: any = {
   multi: true
 };
 
-export const CALENDAR_VALIDATOR: any = {
-  provide: NG_VALIDATORS,
-  useExisting: forwardRef(() => Calendar),
-  multi: true
-};
-
 export interface LocaleSettings {
     firstDayOfWeek?: number;
     dayNames: string[];
-	dayNamesShort: string[];
-	dayNamesMin: string[];
+    dayNamesShort: string[];
+    dayNamesMin: string[];
     monthNames: string[];
     monthNamesShort: string[];
+    today: string,
+    clear: string
 }
 
 @Component({
@@ -31,13 +29,13 @@ export interface LocaleSettings {
     template:  `
         <span [ngClass]="{'ui-calendar':true,'ui-calendar-w-btn':showIcon}" [ngStyle]="style" [class]="styleClass">
             <ng-template [ngIf]="!inline">
-                <input #inputfield type="text" [attr.id]="inputId" [attr.required]="required" [value]="inputFieldValue" (focus)="onInputFocus($event)" (keydown)="onInputKeydown($event)" (click)="datepickerClick=true" (blur)="onInputBlur($event)"
+                <input #inputfield type="text" [attr.id]="inputId" [attr.name]="name" [attr.required]="required" [value]="inputFieldValue" (focus)="onInputFocus($event)" (keydown)="onInputKeydown($event)" (click)="onInputClick($event)" (blur)="onInputBlur($event)"
                     [readonly]="readonlyInput" (input)="onUserInput($event)" [ngStyle]="inputStyle" [class]="inputStyleClass" [placeholder]="placeholder||''" [disabled]="disabled" [attr.tabindex]="tabindex"
-                    [ngClass]="'ui-inputtext ui-widget ui-state-default ui-corner-all'"
-                    ><button type="button" [icon]="icon" pButton *ngIf="showIcon" (click)="onButtonClick($event,inputfield)"
-                    [ngClass]="{'ui-datepicker-trigger':true,'ui-state-disabled':disabled}" [disabled]="disabled" tabindex="-1"></button>
+                    [ngClass]="'ui-inputtext ui-widget ui-state-default ui-corner-all'" autocomplete="off"
+                    ><button type="button" [icon]="icon" pButton *ngIf="showIcon" (click)="onButtonClick($event,inputfield)" class="ui-datepicker-trigger ui-calendar-button"
+                    [ngClass]="{'ui-state-disabled':disabled}" [disabled]="disabled" tabindex="-1"></button>
             </ng-template>
-            <div #datepicker class="ui-datepicker ui-widget ui-widget-content ui-helper-clearfix ui-corner-all" [ngClass]="{'ui-datepicker-inline':inline,'ui-shadow':!inline,'ui-state-disabled':disabled,'ui-datepicker-timeonly':timeOnly}" 
+            <div #datepicker [class]="panelStyleClass" [ngClass]="{'ui-datepicker ui-widget ui-widget-content ui-helper-clearfix ui-corner-all': true, 'ui-datepicker-inline':inline,'ui-shadow':!inline,'ui-state-disabled':disabled,'ui-datepicker-timeonly':timeOnly}"
                 [ngStyle]="{'display': inline ? 'inline-block' : (overlayVisible ? 'block' : 'none')}" (click)="onDatePickerClick($event)" [@overlayState]="inline ? 'visible' : (overlayVisible ? 'visible' : 'hidden')">
 
                 <div class="ui-datepicker-header ui-widget-header ui-helper-clearfix ui-corner-all" *ngIf="!timeOnly && (overlayVisible || inline)">
@@ -71,9 +69,12 @@ export interface LocaleSettings {
                         <tr *ngFor="let week of dates">
                             <td *ngFor="let date of week" [ngClass]="{'ui-datepicker-other-month ui-state-disabled':date.otherMonth,
                                 'ui-datepicker-current-day':isSelected(date),'ui-datepicker-today':date.today}">
-                                <a class="ui-state-default" href="#" *ngIf="date.otherMonth ? showOtherMonths : true" 
+                                <a class="ui-state-default" href="#" *ngIf="date.otherMonth ? showOtherMonths : true"
                                     [ngClass]="{'ui-state-active':isSelected(date), 'ui-state-highlight':date.today, 'ui-state-disabled':!date.selectable}"
-                                    (click)="onDateSelect($event,date)">{{date.day}}</a>
+                                    (click)="onDateSelect($event,date)" draggable="false">
+                                    <ng-container *ngIf="!dateTemplate">{{date.day}}</ng-container>
+                                    <ng-container *ngTemplateOutlet="dateTemplate; context: {$implicit: date}"></ng-container>
+                                </a>
                             </td>
                         </tr>
                     </tbody>
@@ -134,6 +135,16 @@ export interface LocaleSettings {
                         </a>
                     </div>
                 </div>
+                <div class="ui-datepicker-buttonbar ui-widget-header" *ngIf="showButtonBar">
+                    <div class="ui-g">
+                        <div class="ui-g-6">
+                            <button type="button" [label]="_locale.today" (click)="onTodayButtonClick($event)" pButton [ngClass]="[todayButtonStyleClass]"></button>
+                        </div>
+                        <div class="ui-g-6">
+                            <button type="button" [label]="_locale.clear" (click)="onClearButtonClick($event)" pButton [ngClass]="[clearButtonStyleClass]"></button>
+                        </div>
+                    </div>
+                </div>
                 <ng-content select="p-footer"></ng-content>
             </div>
         </span>
@@ -154,7 +165,7 @@ export interface LocaleSettings {
         '[class.ui-inputwrapper-filled]': 'filled',
         '[class.ui-inputwrapper-focus]': 'focus'
     },
-    providers: [DomHandler,CALENDAR_VALUE_ACCESSOR,CALENDAR_VALIDATOR]
+    providers: [DomHandler,CALENDAR_VALUE_ACCESSOR]
 })
 export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy,ControlValueAccessor {
     
@@ -168,6 +179,8 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
 
     @Input() inputId: string;
     
+    @Input() name: string;
+    
     @Input() inputStyleClass: string;
     
     @Input() placeholder: string;
@@ -175,7 +188,7 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
     @Input() disabled: any;
     
     @Input() dateFormat: string = 'mm/dd/yy';
-        
+    
     @Input() inline: boolean = false;
     
     @Input() showOtherMonths: boolean = true;
@@ -198,8 +211,6 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
 
     @Input() yearRange: string;
     
-    @Input() showTime: boolean;
-    
     @Input() hourFormat: string = '24';
     
     @Input() timeOnly: boolean;
@@ -218,15 +229,27 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
     
     @Input() dataType: string = 'date';
     
-    @Input() disabledDates: Array<Date>;
-    
-    @Input() disabledDays: Array<number>;
-    
     @Input() utc: boolean;
     
     @Input() selectionMode: string = 'single';
     
     @Input() maxDateCount: number;
+    
+    @Input() showButtonBar: boolean;
+    
+    @Input() todayButtonStyleClass: string = 'ui-button-secondary';
+    
+    @Input() clearButtonStyleClass: string = 'ui-button-secondary';
+    
+    @Input() autoZIndex: boolean = true;
+    
+    @Input() baseZIndex: number = 0;
+
+    @Input() panelStyleClass: string;
+  
+    @Input() keepInvalid: boolean = false;
+
+    @Input() hideOnDateTimeSelect: boolean = false;
     
     @Output() onFocus: EventEmitter<any> = new EventEmitter();
     
@@ -238,13 +261,25 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
     
     @Output() onInput: EventEmitter<any> = new EventEmitter();
     
+    @Output() onTodayClick: EventEmitter<any> = new EventEmitter();
+    
+    @Output() onClearClick: EventEmitter<any> = new EventEmitter();
+    
+    @Output() onMonthChange: EventEmitter<any> = new EventEmitter();
+    
+    @Output() onYearChange: EventEmitter<any> = new EventEmitter();
+    
+    @ContentChildren(PrimeTemplate) templates: QueryList<any>;
+    
     _locale: LocaleSettings = {
         firstDayOfWeek: 0,
         dayNames: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
         dayNamesShort: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
         dayNamesMin: ["Su","Mo","Tu","We","Th","Fr","Sa"],
         monthNames: [ "January","February","March","April","May","June","July","August","September","October","November","December" ],
-        monthNamesShort: [ "Jan", "Feb", "Mar", "Apr", "May", "Jun","Jul", "Aug", "Sep", "Oct", "Nov", "Dec" ]
+        monthNamesShort: [ "Jan", "Feb", "Mar", "Apr", "May", "Jun","Jul", "Aug", "Sep", "Oct", "Nov", "Dec" ],
+        today: 'Today',
+        clear: 'Clear'
     };
     
     @Input() tabindex: number;
@@ -278,9 +313,9 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
     overlayVisible: boolean;
     
     overlayShown: boolean;
-        
+    
     datepickerClick: boolean;
-        
+    
     onModelChange: Function = () => {};
     
     onModelTouched: Function = () => {};
@@ -304,10 +339,16 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
     _minDate: Date;
     
     _maxDate: Date;
-
-    _isValid: boolean = true;
+    
+    _showTime: boolean;
     
     preventDocumentListener: boolean;
+    
+    dateTemplate: TemplateRef<any>;
+    
+    _disabledDates: Array<Date>;
+    
+    _disabledDays: Array<number>;
 
     @Input() get minDate(): Date {
         return this._minDate;
@@ -315,7 +356,10 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
     
     set minDate(date: Date) {
         this._minDate = date;
-        this.createMonth(this.currentMonth, this.currentYear);
+
+        if(this.currentMonth != undefined && this.currentMonth != null && this.currentYear) {
+            this.createMonth(this.currentMonth, this.currentYear);
+        }
     }
     
     @Input() get maxDate(): Date {
@@ -324,7 +368,47 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
     
     set maxDate(date: Date) {
         this._maxDate = date;
-        this.createMonth(this.currentMonth, this.currentYear);
+      
+        if(this.currentMonth != undefined && this.currentMonth != null  && this.currentYear) {
+            this.createMonth(this.currentMonth, this.currentYear);
+        }
+    }
+    
+    @Input() get disabledDates(): Date[] {
+        return this._disabledDates;
+    }
+    
+    set disabledDates(disabledDates: Date[]) {
+        this._disabledDates = disabledDates;
+        if(this.currentMonth != undefined && this.currentMonth != null  && this.currentYear) {
+
+            this.createMonth(this.currentMonth, this.currentYear);
+        }
+    }
+    
+    @Input() get disabledDays(): number[] {
+        return this._disabledDays;
+    }
+    
+    set disabledDays(disabledDays: number[]) {
+        this._disabledDays = disabledDays;
+
+        if(this.currentMonth != undefined && this.currentMonth != null  && this.currentYear) {
+            this.createMonth(this.currentMonth, this.currentYear);
+        }
+    }
+    
+    @Input() get showTime(): boolean {
+        return this._showTime;
+    }
+    
+    set showTime(showTime: boolean) {
+        this._showTime = showTime;
+        
+        if(this.currentHour === undefined) {
+            this.initTime(this.value||new Date());
+        }
+        this.updateInputfield();
     }
     
     get locale() {
@@ -341,31 +425,17 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
     constructor(public el: ElementRef, public domHandler: DomHandler, public renderer: Renderer2, public cd: ChangeDetectorRef) {}
 
     ngOnInit() {
-        let date = this.defaultDate||new Date();        
+        let date = this.defaultDate||new Date();
         this.createWeekDays();
-                
+        
         this.currentMonth = date.getMonth();
         this.currentYear = date.getFullYear();
-        this.pm = date.getHours() > 11;
-        if(this.showTime) {
-            this.currentMinute = date.getMinutes();
-            this.currentSecond = date.getSeconds();
-            
-            if(this.hourFormat == '12')
-                this.currentHour = date.getHours() == 0 ? 12 : date.getHours() % 12;
-            else
-                this.currentHour = date.getHours();
-        }
-        else if(this.timeOnly) {
-            this.currentMinute = 0;
-            this.currentHour = 0;
-            this.currentSecond = 0;
-        }
+        this.initTime(date);
 
         this.createMonth(this.currentMonth, this.currentYear);
         
         this.ticksTo1970 = (((1970 - 1) * 365 + Math.floor(1970 / 4) - Math.floor(1970 / 100) +
-    		Math.floor(1970 / 400)) * 24 * 60 * 60 * 10000000);
+            Math.floor(1970 / 400)) * 24 * 60 * 60 * 10000000);
             
         if(this.yearNavigator && this.yearRange) {
             this.yearOptions = [];
@@ -395,6 +465,20 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
         }
     }
     
+    ngAfterContentInit() {
+        this.templates.forEach((item) => {
+            switch(item.getType()) {
+                case 'date':
+                    this.dateTemplate = item.template;
+                break;
+                
+                default:
+                    this.dateTemplate = item.template;
+                break;
+            }
+        });
+    }
+    
     createWeekDays() {
         this.weekDays = [];
         let dayIndex = this.locale.firstDayOfWeek;
@@ -415,20 +499,20 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
         let sundayIndex = this.getSundayIndex();
         let dayNo = 1;
         let today = new Date();
-                
+        
         for(let i = 0; i < 6; i++) {
             let week = [];
             
             if(i == 0) {
                 for(let j = (prevMonthDaysLength - firstDay + 1); j <= prevMonthDaysLength; j++) {
                     let prev = this.getPreviousMonthAndYear(month, year);
-                    week.push({day: j, month: prev.month, year: prev.year, otherMonth: true, 
+                    week.push({day: j, month: prev.month, year: prev.year, otherMonth: true,
                             today: this.isToday(today, j, prev.month, prev.year), selectable: this.isSelectable(j, prev.month, prev.year)});
                 }
                 
                 let remainingDaysLength = 7 - week.length;
                 for(let j = 0; j < remainingDaysLength; j++) {
-                    week.push({day: dayNo, month: month, year: year, today: this.isToday(today, dayNo, month, year), 
+                    week.push({day: dayNo, month: month, year: year, today: this.isToday(today, dayNo, month, year),
                             selectable: this.isSelectable(dayNo, month, year)});
                     dayNo++;
                 }
@@ -454,6 +538,35 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
         }
     }
     
+    initTime(date: Date) {
+        this.pm = (!this.utc) ? (date.getHours() > 11) : (date.getUTCHours() > 11);
+        if (this.showTime) {
+            if (this.utc) {
+                this.currentMinute = date.getUTCMinutes();
+                this.currentSecond = date.getUTCSeconds();
+
+                if(this.hourFormat == '12')
+                    this.currentHour = date.getUTCHours() == 0 ? 12 : date.getUTCHours() % 12;
+                else
+                    this.currentHour = date.getUTCHours();
+            }
+            else {
+                this.currentMinute = date.getMinutes();
+                this.currentSecond = date.getSeconds();
+                
+                if(this.hourFormat == '12')
+                    this.currentHour = date.getHours() == 0 ? 12 : date.getHours() % 12;
+                else
+                    this.currentHour = date.getHours();
+            }
+        }
+        else if(this.timeOnly) {
+            this.currentMinute = 0;
+            this.currentHour = 0;
+            this.currentSecond = 0;
+        }
+    }
+    
     prevMonth(event) {
         if(this.disabled) {
             event.preventDefault();
@@ -472,6 +585,7 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
             this.currentMonth--;
         }
         
+        this.onMonthChange.emit({ month: this.currentMonth + 1, year: this.currentYear });
         this.createMonth(this.currentMonth, this.currentYear);
         event.preventDefault();
     }
@@ -494,6 +608,7 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
             this.currentMonth++;
         }
         
+        this.onMonthChange.emit({ month: this.currentMonth + 1, year: this.currentYear });
         this.createMonth(this.currentMonth, this.currentYear);
         event.preventDefault();
     }
@@ -503,11 +618,12 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
             event.preventDefault();
             return;
         }
-                
+        
         if(this.isMultipleSelection() && this.isSelected(dateMeta)) {
             this.value = this.value.filter((date, i) => {
                 return !this.isDateEquals(date, dateMeta);
             });
+            this.updateModel(this.value);
         }
         else {
             if(this.shouldSelectDate(dateMeta)) {
@@ -525,7 +641,7 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
             }
         }
         
-        if(this.isSingleSelection()) {
+        if(this.isSingleSelection() && (!this.showTime || this.hideOnDateTimeSelect)) {
             this.overlayVisible = false;
         }
 
@@ -577,7 +693,7 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
     }
     
     formatDateTime(date) {
-        let formattedValue;
+        let formattedValue = null;
         if(date) {
             if(this.timeOnly) {
                 formattedValue = this.formatTime(date);
@@ -601,16 +717,39 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
             date = new Date(dateMeta.year, dateMeta.month, dateMeta.day);
         
         if(this.showTime) {
-            if(this.hourFormat === '12' && this.pm && this.currentHour != 12)
-                date.setHours(this.currentHour + 12);
-            else
-                date.setHours(this.currentHour);
+            if(this.utc) {
+                if(this.hourFormat === '12' && this.pm && this.currentHour != 12)
+                    date.setUTCHours(this.currentHour + 12);
+                else
+                    date.setUTCHours(this.currentHour);
 
-            date.setMinutes(this.currentMinute);
-            date.setSeconds(this.currentSecond);
+                date.setUTCMinutes(this.currentMinute);
+                date.setUTCSeconds(this.currentSecond);
+            }
+            else {
+                if(this.hourFormat === '12' && this.pm && this.currentHour != 12)
+                    date.setHours(this.currentHour + 12);
+                else
+                    date.setHours(this.currentHour);
+
+                date.setMinutes(this.currentMinute);
+                date.setSeconds(this.currentSecond);
+            }
         }
         
-        this._isValid = true;
+        if(this.minDate && this.minDate > date) {
+            date = this.minDate;
+            this.currentHour = date.getHours();
+            this.currentMinute = date.getMinutes();
+            this.currentSecond = date.getSeconds();
+        }
+        
+        if(this.maxDate && this.maxDate < date) {
+            date = this.maxDate;
+            this.currentHour = date.getHours();
+            this.currentMinute = date.getMinutes();
+            this.currentSecond = date.getSeconds();
+        }
         
         if(this.isSingleSelection()) {
             this.updateModel(date);
@@ -623,7 +762,7 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
                 let startDate = this.value[0];
                 let endDate = this.value[1];
                 
-                if(!endDate && date.getTime() > startDate.getTime()) {
+                if(!endDate && date.getTime() >= startDate.getTime()) {
                     endDate = date;
                 }
                 else {
@@ -631,23 +770,34 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
                     endDate = null;
                 }
                 
-                this.updateModel([startDate, endDate]); 
+                this.updateModel([startDate, endDate]);
             }
             else {
-                this.updateModel([date, null]); 
+                this.updateModel([date, null]);
             }
         }
-            
+        
         this.onSelect.emit(date);
     }
     
     updateModel(value) {
         this.value = value;
         
-        if(this.dataType == 'date')
+        if(this.dataType == 'date') {
             this.onModelChange(this.value);
-        else if(this.dataType == 'string')
-            this.onModelChange(this.formatDateTime(this.value));
+        }
+        else if(this.dataType == 'string') {
+            if(this.isSingleSelection()) {
+                this.onModelChange(this.formatDateTime(this.value));
+            }
+            else {
+                let stringArrValue = null;
+                if(this.value) {
+                    stringArrValue = this.value.map(date => this.formatDateTime(date));
+                }
+                this.onModelChange(stringArrValue);
+            }
+        }
     }
     
     getFirstDayOfMonthIndex(month: number, year: number) {
@@ -703,7 +853,7 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
         return this.locale.firstDayOfWeek > 0 ? 7 - this.locale.firstDayOfWeek : 0;
     }
     
-    isSelected(dateMeta): boolean {     
+    isSelected(dateMeta): boolean {
         if(this.value) {
             if(this.isSingleSelection()) {
                 return this.isDateEquals(this.value, dateMeta);
@@ -738,13 +888,13 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
     }
     
     isDateBetween(start, end, dateMeta) {
+        let between : boolean = false;
         if(start && end) {
-            return start.getDate() < dateMeta.day && start.getMonth() <= dateMeta.month && start.getFullYear() <= dateMeta.year &&
-            end.getDate() > dateMeta.day && end.getMonth() >= dateMeta.month && end.getFullYear() >= dateMeta.year;
+            let date: Date = new Date(dateMeta.year, dateMeta.month, dateMeta.day);
+            return start.getTime() <= date.getTime() && end.getTime() >= date.getTime();
         }
-        else {
-            return false; 
-        }
+        
+        return between;
     }
     
     isSingleSelection(): boolean {
@@ -759,7 +909,7 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
         return this.selectionMode === 'multiple';
     }
     
-    isToday(today, day, month, year): boolean {     
+    isToday(today, day, month, year): boolean {
         return today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
     }
     
@@ -782,7 +932,7 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
                          validMin = false;
                      }
                  }
-             }  
+             }
         }
         
         if(this.maxDate) {
@@ -798,7 +948,7 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
                          validMax = false;
                      }
                  }
-             }  
+             }
         }
         
         if(this.disabledDates) {
@@ -836,19 +986,28 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
     onInputFocus(event: Event) {
         this.focus = true;
         if(this.showOnFocus) {
-            this.showOverlay();
+          this.showOverlay();
         }
         this.onFocus.emit(event);
+    }
+    
+    onInputClick(event: Event) {
+      this.datepickerClick=true;
+      if(this.autoZIndex) {
+        this.overlayViewChild.nativeElement.style.zIndex = String(this.baseZIndex + (++DomHandler.zindex));
+      }
     }
     
     onInputBlur(event: Event) {
         this.focus = false;
         this.onBlur.emit(event);
-        this.updateInputfield();
+        if(!this.keepInvalid) {
+            this.updateInputfield();
+        }
         this.onModelTouched();
     }
     
-    onButtonClick(event,inputfield) {        
+    onButtonClick(event,inputfield) {
         if(!this.overlayViewChild.nativeElement.offsetParent || this.overlayViewChild.nativeElement.style.display === 'none') {
             inputfield.focus();
             this.showOverlay();
@@ -868,83 +1027,221 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
     
     onMonthDropdownChange(m: string) {
         this.currentMonth = parseInt(m);
+        this.onMonthChange.emit({ month: this.currentMonth + 1, year: this.currentYear });
         this.createMonth(this.currentMonth, this.currentYear);
     }
     
     onYearDropdownChange(y: string) {
         this.currentYear = parseInt(y);
+        this.onYearChange.emit({ month: this.currentMonth + 1, year: this.currentYear });
         this.createMonth(this.currentMonth, this.currentYear);
     }
     
     incrementHour(event) {
-        let newHour = this.currentHour + this.stepHour;
-        if(this.hourFormat == '24')
-            this.currentHour = (newHour >= 24) ? (newHour - 24) : newHour;        
-        else if(this.hourFormat == '12')
-            this.currentHour = (newHour >= 13) ? (newHour - 12) : newHour;
-        
-        this.updateTime();
-                
+        const prevHour = this.currentHour;
+        const newHour = this.currentHour + this.stepHour;
+
+        if(this.validateHour(newHour)) {
+            if(this.hourFormat == '24')
+                this.currentHour = (newHour >= 24) ? (newHour - 24) : newHour;
+            else if(this.hourFormat == '12') {
+                // Before the AM/PM break, now after
+                if (prevHour < 12 && newHour > 11) {
+                    this.pm = !this.pm;
+                }
+
+                this.currentHour = (newHour >= 13) ? (newHour - 12) : newHour;
+            }
+            
+            this.updateTime();
+        }
+    
         event.preventDefault();
     }
     
     decrementHour(event) {
-        let newHour = this.currentHour - this.stepHour;
-        if(this.hourFormat == '24')
-            this.currentHour = (newHour < 0) ? (24 + newHour) : newHour;        
-        else if(this.hourFormat == '12')
-            this.currentHour = (newHour <= 0) ? (12 + newHour) : newHour;
+        const newHour = this.currentHour - this.stepHour;
+        
+        if(this.validateHour(newHour)) {
+            if(this.hourFormat == '24')
+                this.currentHour = (newHour < 0) ? (24 + newHour) : newHour;
+            else if(this.hourFormat == '12') {
+                // If we were at noon/midnight, then switch
+                if (this.currentHour === 12) {
+                    this.pm = !this.pm;
+                }
+                this.currentHour = (newHour <= 0) ? (12 + newHour) : newHour;
+            }
             
-        this.updateTime();
+            this.updateTime();
+        }
 
         event.preventDefault();
     }
     
+    validateHour(hour): boolean {
+        let valid: boolean = true;
+        let value = this.value;
+        if(this.isRangeSelection()) {
+            value = this.value[1] || this.value[0];
+        }
+        if(this.isMultipleSelection()) {
+            value = this.value[this.value.length - 1];
+        }
+        let valueDateString = value ? value.toDateString() : null;
+        
+        if(this.minDate && valueDateString && this.minDate.toDateString() === valueDateString) {
+            if(this.minDate.getHours() > hour) {
+                valid = false;
+            }
+        }
+        
+        if(this.maxDate && valueDateString && this.maxDate.toDateString() === valueDateString) {
+            if(this.maxDate.getHours() < hour) {
+                valid = false;
+            }
+        }
+        
+        return valid;
+    }
+    
     incrementMinute(event) {
         let newMinute = this.currentMinute + this.stepMinute;
-        this.currentMinute = (newMinute > 59) ? newMinute - 60 : newMinute;
-            
-        this.updateTime();
-                
+        if(this.validateMinute(newMinute)) {
+            this.currentMinute = (newMinute > 59) ? newMinute - 60 : newMinute;
+            this.updateTime();
+        }
+        
         event.preventDefault();
     }
     
     decrementMinute(event) {
         let newMinute = this.currentMinute - this.stepMinute;
-        this.currentMinute = (newMinute < 0) ? 60 + newMinute : newMinute;
-            
-        this.updateTime();
-            
+        if(this.validateMinute(newMinute)) {
+            this.currentMinute = (newMinute < 0) ? 60 + newMinute : newMinute;
+            this.updateTime();
+        }
+        
         event.preventDefault();
+    }
+    
+    validateMinute(minute): boolean {
+        let valid: boolean = true;
+        let value = this.value;
+        if(this.isRangeSelection()) {
+            value = this.value[1] || this.value[0];
+        }
+        if(this.isMultipleSelection()) {
+            value = this.value[this.value.length - 1];
+        }
+        let valueDateString = value ? value.toDateString() : null;
+        
+        if(this.minDate && valueDateString && this.minDate.toDateString() === valueDateString) {
+            if(this.minDate.getMinutes() > minute) {
+                valid = false;
+            }
+        }
+        
+        if(this.maxDate && valueDateString && this.maxDate.toDateString() === valueDateString) {
+            if(this.maxDate.getMinutes() < minute) {
+                valid = false;
+            }
+        }
+        
+        return valid;
     }
     
     incrementSecond(event) {
         let newSecond = this.currentSecond + this.stepSecond;
-        this.currentSecond = (newSecond > 59) ? newSecond - 60 : newSecond;
-            
-        this.updateTime();
-                
+        if(this.validateSecond(newSecond)) {
+            this.currentSecond = (newSecond > 59) ? newSecond - 60 : newSecond;
+            this.updateTime();
+        }
+    
         event.preventDefault();
     }
     
     decrementSecond(event) {
         let newSecond = this.currentSecond - this.stepSecond;
-        this.currentSecond = (newSecond < 0) ? 60 + newSecond : newSecond;
-            
-        this.updateTime();
-            
+        if(this.validateSecond(newSecond)) {
+            this.currentSecond = (newSecond < 0) ? 60 + newSecond : newSecond;
+            this.updateTime();
+        }
+        
         event.preventDefault();
     }
     
+    validateSecond(second): boolean {
+        let valid: boolean = true;
+        let value = this.value;
+        if(this.isRangeSelection()) {
+            value = this.value[1] || this.value[0];
+        }
+        if(this.isMultipleSelection()) {
+            value = this.value[this.value.length - 1];
+        }
+        let valueDateString = value ? value.toDateString() : null;
+        
+        if(this.minDate && valueDateString && this.minDate.toDateString() === valueDateString) {
+            if(this.minDate.getSeconds() > second) {
+                valid = false;
+            }
+        }
+        
+        if(this.maxDate && valueDateString && this.maxDate.toDateString() === valueDateString) {
+            if(this.maxDate.getSeconds() < second) {
+                valid = false;
+            }
+        }
+        
+        return valid;
+    }
+    
     updateTime() {
-        let value = this.value||new Date();
-        if(this.hourFormat === '12' && this.pm && this.currentHour != 12)
-            value.setHours(this.currentHour + 12);
-        else
-            value.setHours(this.currentHour);
+        let value = this.value;
+        if(this.isRangeSelection()) {
+            value = this.value[1] || this.value[0];
+        }
+        if(this.isMultipleSelection()) {
+            value = this.value[this.value.length - 1];
+        }
+        value = value ? new Date(value.getTime()) : new Date();
+
+        if (this.utc) {
+            if (this.hourFormat == '12') {
+                if (this.currentHour === 12)
+                    value.setUTCHours(this.pm ? 12 : 0);
+                else
+                    value.setUTCHours(this.pm ? this.currentHour + 12 : this.currentHour);
+            }
+            else {
+                value.setUTCHours(this.currentHour);
+            }
+        }
+        else {
+            if (this.hourFormat == '12') {
+                if (this.currentHour === 12)
+                    value.setHours(this.pm ? 12 : 0);
+                else
+                    value.setHours(this.pm ? this.currentHour + 12 : this.currentHour);
+            }
+            else {
+                value.setHours(this.currentHour);
+            }
+        }
         
         value.setMinutes(this.currentMinute);
         value.setSeconds(this.currentSecond);
+        if(this.isRangeSelection()) {
+            if(this.value[1]) {
+                value = [this.value[0], value];
+            } else {
+                value = [value, null];
+            }
+        }
+        if(this.isMultipleSelection()){
+            value = [...this.value.slice(0, -1), value];
+        }
         this.updateModel(value);
         this.onSelect.emit(value);
         this.updateInputfield();
@@ -963,17 +1260,15 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
         }
         this.isKeydown = false;
         
-        let val = event.target.value;   
+        let val = event.target.value;
         try {
             let value = this.parseValueFromString(val);
             this.updateModel(value);
             this.updateUI();
-            this._isValid = true;
-        } 
+        }
         catch(err) {
             //invalid date
             this.updateModel(null);
-            this._isValid = false;
         }
         
         this.filled = val != null && val.length;
@@ -1036,19 +1331,30 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
         
         this.pm = (ampm === 'PM' || ampm === 'pm');
         let time = this.parseTime(timeString);
-        value.setHours(time.hour);
+        if (!this.utc)
+            value.setHours(time.hour);
+        else
+            value.setUTCHours(time.hour);
+    
         value.setMinutes(time.minute);
         value.setSeconds(time.second);
     }
     
     updateUI() {
         let val = this.value||this.defaultDate||new Date();
+
+        if (Array.isArray(val)){
+            val = val[0];
+        }
+
         this.createMonth(val.getMonth(), val.getFullYear());
         
         if(this.showTime||this.timeOnly) {
-            let hours = val.getHours();
+            let hours = (this.utc) ? val.getUTCHours() : val.getHours();
             
             if(this.hourFormat == '12') {
+                this.pm = hours > 11;
+                
                 if(hours >= 12) {
                     this.currentHour = (hours == 12) ? 12 : hours - 12;
                 }
@@ -1057,7 +1363,7 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
                 }
             }
             else {
-                this.currentHour = val.getHours();
+                this.currentHour = (this.utc) ? val.getUTCHours() : val.getHours();
             }
             
             this.currentMinute = val.getMinutes();
@@ -1072,7 +1378,9 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
     showOverlay() {
         this.overlayVisible = true;
         this.overlayShown = true;
-        this.overlayViewChild.nativeElement.style.zIndex = String(++DomHandler.zindex);
+        if(this.autoZIndex) {
+            this.overlayViewChild.nativeElement.style.zIndex = String(this.baseZIndex + (++DomHandler.zindex));
+        }
         
         this.bindDocumentClickListener();
     }
@@ -1106,77 +1414,87 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
         this.disabled = val;
     }
     
-    // Ported from jquery-ui datepicker formatDate    
+    // Ported from jquery-ui datepicker formatDate
     formatDate(date, format) {
-        if(!date) {
-            return "";
+        if (!date) {
+            return '';
         }
 
-        let iFormat,
-        lookAhead = (match) => {
-            let matches = (iFormat + 1 < format.length && format.charAt(iFormat + 1) === match);
-            if(matches) {
+        let iFormat;
+        const lookAhead = (match) => {
+            const matches = (iFormat + 1 < format.length && format.charAt(iFormat + 1) === match);
+            if (matches) {
                 iFormat++;
             }
             return matches;
         },
-        formatNumber = (match, value, len) => {
-            let num = "" + value;
-            if(lookAhead(match)) {
-                while (num.length < len) {
-                    num = "0" + num;
+            formatNumber = (match, value, len) => {
+                let num = '' + value;
+                if (lookAhead(match)) {
+                    while (num.length < len) {
+                        num = '0' + num;
+                    }
                 }
-            }
-            return num;
-        },
-        formatName = (match, value, shortNames, longNames) => {
-            return (lookAhead(match) ? longNames[ value ] : shortNames[ value ]);
-        },
-        output = "",
-        literal = false;
+                return num;
+            },
+            formatName = (match, value, shortNames, longNames) => {
+                return (lookAhead(match) ? longNames[value] : shortNames[value]);
+            };
+        let output = '';
+        let literal = false;
 
-        if(date) {
-            for(iFormat = 0; iFormat < format.length; iFormat++) {
-                if(literal) {
-                    if(format.charAt(iFormat) === "'" && !lookAhead("'"))
+        if (date) {
+            for (iFormat = 0; iFormat < format.length; iFormat++) {
+                if (literal) {
+                    if (format.charAt(iFormat) === '\'' && !lookAhead('\'')) {
                         literal = false;
-                    else
+                    } else {
                         output += format.charAt(iFormat);
-                }
-                else {
+                    }
+                } else {
                     switch (format.charAt(iFormat)) {
-                        case "d":
-                            output += formatNumber("d", date.getDate(), 2);
+                        case 'd':
+                            output += formatNumber('d', this.utc ? date.getUTCDate() : date.getDate(), 2);
                             break;
-                        case "D":
-                            output += formatName("D", date.getDay(), this.locale.dayNamesShort, this.locale.dayNames);
+                        case 'D':
+                            output += formatName('D', this.utc ? date.getUTCDay() : date.getDay(), this.locale.dayNamesShort, this.locale.dayNames);
                             break;
-                        case "o":
-                            output += formatNumber("o",
-                                Math.round((new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000), 3);
+                        case 'o':
+                            if (this.utc) {
+                                output += formatNumber('o',
+                                    Math.round((
+                                        new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()).getTime() -
+                                        new Date(date.getUTCFullYear(), 0, 0).getTime()) / 86400000), 3);
+                            } else {
+                                output += formatNumber('o',
+                                    Math.round((
+                                        new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() -
+                                        new Date(date.getFullYear(), 0, 0).getTime()) / 86400000), 3);
+                            }
                             break;
-                        case "m":
-                            output += formatNumber("m", date.getMonth() + 1, 2);
+                        case 'm':
+                            output += formatNumber('m', (this.utc ? date.getUTCMonth() : date.getMonth()) + 1, 2);
                             break;
-                        case "M":
-                            output += formatName("M", date.getMonth(), this.locale.monthNamesShort, this.locale.monthNames);
+                        case 'M':
+                            output += formatName('M', this.utc ? date.getUTCMonth() : date.getMonth(), this.locale.monthNamesShort, this.locale.monthNames);
                             break;
-                        case "y":
-                            output += (lookAhead("y") ? date.getFullYear() :
-                                (date.getFullYear() % 100 < 10 ? "0" : "") + date.getFullYear() % 100);
+                        case 'y':
+                            output += (lookAhead('y') ? (this.utc ? date.getUTCFullYear() : date.getFullYear()) :
+                                ((this.utc ? date.getUTCFullYear() : date.getFullYear()) % 100 < 10 ? '0' : '') +
+                                (this.utc ? date.getUTCFullYear() : date.getFullYear()) % 100);
                             break;
-                        case "@":
+                        case '@':
                             output += date.getTime();
                             break;
-                        case "!":
+                        case '!':
                             output += date.getTime() * 10000 + this.ticksTo1970;
                             break;
-                        case "'":
-                            if(lookAhead("'"))
-                                output += "'";
-                            else
+                        case '\'':
+                            if (lookAhead('\'')) {
+                                output += '\'';
+                            } else {
                                 literal = true;
-
+                            }
                             break;
                         default:
                             output += format.charAt(iFormat);
@@ -1185,7 +1503,7 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
             }
         }
         return output;
-	}
+    }
     
     formatTime(date) {
         if(!date) {
@@ -1193,7 +1511,7 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
         }
         
         let output = '';
-        let hours = date.getHours();
+        let hours = (this.utc) ? date.getUTCHours() : date.getHours();
         let minutes = date.getMinutes();
         let seconds = date.getSeconds();
         
@@ -1201,7 +1519,11 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
             hours-=12;
         }
         
-        output += (hours < 10) ? '0' + hours : hours;
+        if(this.hourFormat == '12') {
+            output += hours === 0 ? 12 : (hours < 10) ? '0' + hours : hours;
+        } else {
+            output += (hours < 10) ? '0' + hours : hours;
+        }
         output += ':';
         output += (minutes < 10) ? '0' + minutes : minutes;
         
@@ -1241,47 +1563,47 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
         }
     }
     
-    // Ported from jquery-ui datepicker parseDate 
+    // Ported from jquery-ui datepicker parseDate
     parseDate(value, format) {
-		if(format == null || value == null) {
-			throw "Invalid arguments";
-		}
+        if(format == null || value == null) {
+            throw "Invalid arguments";
+        }
 
-		value = (typeof value === "object" ? value.toString() : value + "");
-		if(value === "") {
-			return null;
-		}
+        value = (typeof value === "object" ? value.toString() : value + "");
+        if(value === "") {
+            return null;
+        }
 
-		let iFormat, dim, extra,
-		iValue = 0,
-		shortYearCutoff = (typeof this.shortYearCutoff !== "string" ? this.shortYearCutoff : new Date().getFullYear() % 100 + parseInt(this.shortYearCutoff, 10)),
-		year = -1,
-		month = -1,
-		day = -1,
-		doy = -1,
-		literal = false,
-		date,
-		lookAhead = (match) => {
-			let matches = (iFormat + 1 < format.length && format.charAt(iFormat + 1) === match);
-			if(matches) {
-				iFormat++;
-			}
-			return matches;
-		},
-		getNumber = (match) => {
-			let isDoubled = lookAhead(match),
-				size = (match === "@" ? 14 : (match === "!" ? 20 :
-				(match === "y" && isDoubled ? 4 : (match === "o" ? 3 : 2)))),
-				minSize = (match === "y" ? size : 1),
-				digits = new RegExp("^\\d{" + minSize + "," + size + "}"),
-				num = value.substring(iValue).match(digits);
-			if(!num) {
-				throw "Missing number at position " + iValue;
-			}
-			iValue += num[ 0 ].length;
-			return parseInt(num[ 0 ], 10);
-		},
-		getName = (match, shortNames, longNames) => {
+        let iFormat, dim, extra,
+        iValue = 0,
+        shortYearCutoff = (typeof this.shortYearCutoff !== "string" ? this.shortYearCutoff : new Date().getFullYear() % 100 + parseInt(this.shortYearCutoff, 10)),
+        year = -1,
+        month = -1,
+        day = -1,
+        doy = -1,
+        literal = false,
+        date,
+        lookAhead = (match) => {
+            let matches = (iFormat + 1 < format.length && format.charAt(iFormat + 1) === match);
+            if(matches) {
+                iFormat++;
+            }
+            return matches;
+        },
+        getNumber = (match) => {
+            let isDoubled = lookAhead(match),
+                size = (match === "@" ? 14 : (match === "!" ? 20 :
+                (match === "y" && isDoubled ? 4 : (match === "o" ? 3 : 2)))),
+                minSize = (match === "y" ? size : 1),
+                digits = new RegExp("^\\d{" + minSize + "," + size + "}"),
+                num = value.substring(iValue).match(digits);
+            if(!num) {
+                throw "Missing number at position " + iValue;
+            }
+            iValue += num[ 0 ].length;
+            return parseInt(num[ 0 ], 10);
+        },
+        getName = (match, shortNames, longNames) => {
             let index = -1;
             let arr = lookAhead(match) ? longNames : shortNames;
             let names = [];
@@ -1296,116 +1618,127 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
             for(let i = 0; i < names.length; i++) {
                 let name = names[i][1];
                 if(value.substr(iValue, name.length).toLowerCase() === name.toLowerCase()) {
-    				index = names[i][0];
-    				iValue += name.length;
-    				break;
-    			}
+                    index = names[i][0];
+                    iValue += name.length;
+                    break;
+                }
             }
 
-			if(index !== -1) {
-				return index + 1;
-			} else {
-				throw "Unknown name at position " + iValue;
-			}
-		},
-		checkLiteral = () => {
-			if(value.charAt(iValue) !== format.charAt(iFormat)) {
-				throw "Unexpected literal at position " + iValue;
-			}
-			iValue++;
-		};
+            if(index !== -1) {
+                return index + 1;
+            } else {
+                throw "Unknown name at position " + iValue;
+            }
+        },
+        checkLiteral = () => {
+            if(value.charAt(iValue) !== format.charAt(iFormat)) {
+                throw "Unexpected literal at position " + iValue;
+            }
+            iValue++;
+        };
 
-		for (iFormat = 0; iFormat < format.length; iFormat++) {
-			if(literal) {
-				if(format.charAt(iFormat) === "'" && !lookAhead("'")) {
-					literal = false;
-				} else {
-					checkLiteral();
-				}
-			} else {
-				switch (format.charAt(iFormat)) {
-					case "d":
-						day = getNumber("d");
-						break;
-					case "D":
-						getName("D", this.locale.dayNamesShort, this.locale.dayNames);
-						break;
-					case "o":
-						doy = getNumber("o");
-						break;
-					case "m":
-						month = getNumber("m");
-						break;
-					case "M":
-						month = getName("M", this.locale.monthNamesShort, this.locale.monthNames);
-						break;
-					case "y":
-						year = getNumber("y");
-						break;
-					case "@":
-						date = new Date(getNumber("@"));
-						year = date.getFullYear();
-						month = date.getMonth() + 1;
-						day = date.getDate();
-						break;
-					case "!":
-						date = new Date((getNumber("!") - this.ticksTo1970) / 10000);
-						year = date.getFullYear();
-						month = date.getMonth() + 1;
-						day = date.getDate();
-						break;
-					case "'":
-						if(lookAhead("'")) {
-							checkLiteral();
-						} else {
-							literal = true;
-						}
-						break;
-					default:
-						checkLiteral();
-				}
-			}
-		}
+        for (iFormat = 0; iFormat < format.length; iFormat++) {
+            if(literal) {
+                if(format.charAt(iFormat) === "'" && !lookAhead("'")) {
+                    literal = false;
+                } else {
+                    checkLiteral();
+                }
+            } else {
+                switch (format.charAt(iFormat)) {
+                    case "d":
+                        day = getNumber("d");
+                        break;
+                    case "D":
+                        getName("D", this.locale.dayNamesShort, this.locale.dayNames);
+                        break;
+                    case "o":
+                        doy = getNumber("o");
+                        break;
+                    case "m":
+                        month = getNumber("m");
+                        break;
+                    case "M":
+                        month = getName("M", this.locale.monthNamesShort, this.locale.monthNames);
+                        break;
+                    case "y":
+                        year = getNumber("y");
+                        break;
+                    case "@":
+                        date = new Date(getNumber("@"));
+                        year = date.getFullYear();
+                        month = date.getMonth() + 1;
+                        day = date.getDate();
+                        break;
+                    case "!":
+                        date = new Date((getNumber("!") - this.ticksTo1970) / 10000);
+                        year = date.getFullYear();
+                        month = date.getMonth() + 1;
+                        day = date.getDate();
+                        break;
+                    case "'":
+                        if(lookAhead("'")) {
+                            checkLiteral();
+                        } else {
+                            literal = true;
+                        }
+                        break;
+                    default:
+                        checkLiteral();
+                }
+            }
+        }
 
-		if(iValue < value.length) {
-			extra = value.substr(iValue);
-			if(!/^\s+/.test(extra)) {
-				throw "Extra/unparsed characters found in date: " + extra;
-			}
-		}
+        if(iValue < value.length) {
+            extra = value.substr(iValue);
+            if(!/^\s+/.test(extra)) {
+                throw "Extra/unparsed characters found in date: " + extra;
+            }
+        }
 
-		if(year === -1) {
-			year = new Date().getFullYear();
-		} else if(year < 100) {
-			year += new Date().getFullYear() - new Date().getFullYear() % 100 +
-				(year <= shortYearCutoff ? 0 : -100);
-		}
+        if(year === -1) {
+            year = new Date().getFullYear();
+        } else if(year < 100) {
+            year += new Date().getFullYear() - new Date().getFullYear() % 100 +
+                (year <= shortYearCutoff ? 0 : -100);
+        }
 
-		if(doy > -1) {
-			month = 1;
-			day = doy;
-			do {
-				dim = this.getDaysCountInMonth(year, month - 1);
-				if(day <= dim) {
-					break;
-				}
-				month++;
-				day -= dim;
-			} while (true);
-		}
+        if(doy > -1) {
+            month = 1;
+            day = doy;
+            do {
+                dim = this.getDaysCountInMonth(year, month - 1);
+                if(day <= dim) {
+                    break;
+                }
+                month++;
+                day -= dim;
+            } while (true);
+        }
 
-		date = this.daylightSavingAdjust(new Date(year, month - 1, day));
-		if(date.getFullYear() !== year || date.getMonth() + 1 !== month || date.getDate() !== day) {
-			throw "Invalid date"; // E.g. 31/02/00
-		}
-		return date;
-	}
+        if (this.utc) {
+            date = new Date(Date.UTC(year, month - 1, day));
+            if (date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day) {
+                throw "Invalid date"; // E.g. 31/02/00
+            }
+        } else {
+            date = this.daylightSavingAdjust(new Date(year, month - 1, day));
+            if (date.getFullYear() !== year || date.getMonth() + 1 !== month || date.getDate() !== day) {
+                throw "Invalid date"; // E.g. 31/02/00
+            }
+        }
+        return date;
+    }
     
     daylightSavingAdjust(date) {
         if(!date) {
             return null;
         }
-        date.setHours(date.getHours() > 12 ? date.getHours() + 2 : 0);
+
+        if(!this.utc) {
+            date.setHours(date.getHours() > 12 ? date.getHours() + 2 : 0);
+        }
+        
         return date;
     }
     
@@ -1413,10 +1746,26 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
         this.filled = this.inputFieldValue && this.inputFieldValue != '';
     }
     
+    onTodayButtonClick(event) {
+        let date: Date = new Date();
+        let dateMeta = {day: date.getDate(), month: date.getMonth(), year: date.getFullYear(), today: true, selectable: true};
+        
+        this.createMonth(dateMeta.month, dateMeta.year);
+        this.onDateSelect(event, dateMeta);
+        this.onTodayClick.emit(event);
+    }
+    
+    onClearButtonClick(event) {
+        this.updateModel(null);
+        this.updateInputfield();
+        this.overlayVisible = false;
+        this.onClearClick.emit(event);
+    }
+    
     bindDocumentClickListener() {
         if(!this.documentClickListener) {
             this.documentClickListener = this.renderer.listen('document', 'click', (event) => {
-                if(!this.datepickerClick) {
+                if(!this.datepickerClick&&this.overlayVisible) {
                     this.overlayVisible = false;
                     this.onClose.emit(event);
                 }
@@ -1433,7 +1782,7 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
             this.documentClickListener = null;
         }
     }
-        
+    
     ngOnDestroy() {
         this.unbindDocumentClickListener();
         
@@ -1441,19 +1790,11 @@ export class Calendar implements AfterViewInit,AfterViewChecked,OnInit,OnDestroy
             this.el.nativeElement.appendChild(this.overlayViewChild.nativeElement);
         }
     }
-
-    validate(c: AbstractControl) {
-        if (!this._isValid) {
-            return { invalidDate: true };
-        }
-
-        return null;
-    }
 }
 
 @NgModule({
-    imports: [CommonModule,ButtonModule],
-    exports: [Calendar,ButtonModule],
+    imports: [CommonModule,ButtonModule,SharedModule],
+    exports: [Calendar,ButtonModule,SharedModule],
     declarations: [Calendar]
 })
 export class CalendarModule { }

@@ -78,7 +78,7 @@
             <h3>Import</h3>
 <pre>
 <code class="language-typescript" pCode ngNonBindable>
-import &#123;AccordionModule&#125; from 'primeng/primeng';
+import &#123;AccordionModule&#125; from 'primeng/accordion';
 </code>
 </pre>
 
@@ -158,11 +158,6 @@ import &#123;AccordionModule&#125; from 'primeng/primeng';
 
             <h3>Custom Content at Headers</h3>
             <p>Custom content can be placed at an accordion header with header element.</p>
-<pre>
-<code class="language-typescript" pCode ngNonBindable>
-import &#123;SharedModule&#125; from 'primeng/primeng';
-</code>
-</pre>
 
 <pre>
 <code class="language-markup" pCode ngNonBindable>
@@ -255,6 +250,18 @@ export class AccordionDemo &#123;
                             <td>any</td>
                             <td>null</td>
                             <td>Index of the active tab or an array of indexes to change selected tab programmatically.</td>
+                        </tr>
+                        <tr>
+                            <td>expandIcon</td>
+                            <td>string</td>
+                            <td>fa fa-fw fa-caret-right</td>
+                            <td>Icon of a collapsed tab.</td>
+                        </tr>
+                        <tr>
+                            <td>collapseIcon</td>
+                            <td>string</td>
+                            <td>fa fa-fw fa-caret-down</td>
+                            <td>Icon of an expanded tab.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -457,7 +464,7 @@ export class AccordionDemo &#123;
 
     msgs: Message[];
     
-    index: number = 0;
+    index: number = -1;
 
     onTabClose(event) &#123;
         this.msgs = [];
@@ -474,7 +481,7 @@ export class AccordionDemo &#123;
     &#125;
     
     openPrev() &#123;
-        this.index = (this.index === 0) ? 3 : this.index - 1;
+        this.index = (this.index &lt;=0 ) ? 3 : this.index - 1;
     &#125;
 &#125;
 </code>
